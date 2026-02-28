@@ -252,7 +252,7 @@ export default function ClientesPage() {
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                            <span className="text-xs sm:text-sm">{formatDate(cliente.dataNascimento)}</span>
+                            <span className="text-xs sm:text-sm">{cliente.dataNascimento ? formatDate(cliente.dataNascimento) : 'Não informada'}</span>
                           </div>
                           <p className="text-[10px] sm:text-xs text-gray-500">{cliente.genero}</p>
                         </div>
@@ -430,9 +430,7 @@ export default function ClientesPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                      <span className="text-gray-600">
-                        {formatDate(cliente.dataNascimento)} • {cliente.genero}
-                      </span>
+                      <span className="text-xs sm:text-sm">{cliente.dataNascimento ? formatDate(cliente.dataNascimento) : 'Não informada'}</span>
                     </div>
                     {cliente.instagram && (
                       <div className="flex items-center gap-2">

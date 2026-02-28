@@ -63,22 +63,23 @@ export default function EditarClientePage() {
         setCliente(data);
         
         // Preencher estados
-        setNome(data.nome);
-        setEmail(data.email);
-        setWhatsapp(data.whatsapp);
-        setBairro(data.bairro);
-        setCidade(data.cidade);
-        setEstado(data.estado);
-        setGenero(data.genero);
-        setDataNascimento(data.dataNascimento.split('T')[0]);
-        setPais(data.pais || '');
-        setInstagram(data.instagram || '');
-        setFacebook(data.facebook || '');
-        setTiktok(data.tiktok || '');
-        setReceberOfertas(data.receberOfertas);
-        setComoConheceu(data.comoConheceu || '');
-        setObservacoes(data.observacoes || '');
-        setAtivo(data.ativo);
+      // Preencher estados
+setNome(data.nome);
+setEmail(data.email);
+setWhatsapp(data.whatsapp);
+setBairro(data.bairro ?? '');
+setCidade(data.cidade ?? '');
+setEstado(data.estado ?? '');
+setGenero(data.genero ?? '');
+setDataNascimento(data.dataNascimento?.split('T')[0] ?? '');
+setPais(data.pais ?? 'Brasil');
+setInstagram(data.instagram ?? '');
+setFacebook(data.facebook ?? '');
+setTiktok(data.tiktok ?? '');
+setReceberOfertas(data.receberOfertas ?? true);
+setComoConheceu(data.comoConheceu ?? '');
+setObservacoes(data.observacoes ?? '');
+setAtivo(data.ativo ?? true);
         
       } catch (error) {
         toast.error('Erro ao carregar cliente');
@@ -93,48 +94,53 @@ export default function EditarClientePage() {
     }
   }, [id, router]);
 
-  const handleSalvar = async () => {
-    const dadosAtualizar: any = {};
-    
-    if (nome !== cliente?.nome) dadosAtualizar.nome = nome;
-    if (email !== cliente?.email) dadosAtualizar.email = email;
-    if (whatsapp !== cliente?.whatsapp) dadosAtualizar.whatsapp = whatsapp;
-    if (bairro !== cliente?.bairro) dadosAtualizar.bairro = bairro;
-    if (cidade !== cliente?.cidade) dadosAtualizar.cidade = cidade;
-    if (estado !== cliente?.estado) dadosAtualizar.estado = estado;
-    if (genero !== cliente?.genero) dadosAtualizar.genero = genero;
-    if (dataNascimento !== cliente?.dataNascimento.split('T')[0]) {
-      dadosAtualizar.dataNascimento = dataNascimento;
-    }
-    if (pais !== cliente?.pais) dadosAtualizar.pais = pais;
-    if (instagram !== cliente?.instagram) dadosAtualizar.instagram = instagram;
-    if (facebook !== cliente?.facebook) dadosAtualizar.facebook = facebook;
-    if (tiktok !== cliente?.tiktok) dadosAtualizar.tiktok = tiktok;
-    if (receberOfertas !== cliente?.receberOfertas) {
-      dadosAtualizar.receberOfertas = receberOfertas;
-    }
-    if (comoConheceu !== cliente?.comoConheceu) dadosAtualizar.comoConheceu = comoConheceu;
-    if (observacoes !== cliente?.observacoes) dadosAtualizar.observacoes = observacoes;
-    if (ativo !== cliente?.ativo) dadosAtualizar.ativo = ativo;
+const handleSalvar = async () => {
+  const dadosAtualizar: any = {};
+  
+  if (nome !== cliente?.nome) dadosAtualizar.nome = nome;
+  if (email !== cliente?.email) dadosAtualizar.email = email;
+  if (whatsapp !== cliente?.whatsapp) dadosAtualizar.whatsapp = whatsapp;
+  if (bairro !== cliente?.bairro) dadosAtualizar.bairro = bairro;
+  if (cidade !== cliente?.cidade) dadosAtualizar.cidade = cidade;
+  if (estado !== cliente?.estado) dadosAtualizar.estado = estado;
+  if (genero !== cliente?.genero) dadosAtualizar.genero = genero;
+  
+  // 🔥 CORREÇÃO AQUI
+  const dataNascimentoOriginal = cliente?.dataNascimento 
+    ? cliente.dataNascimento.split('T')[0] 
+    : '';
+  if (dataNascimento !== dataNascimentoOriginal) {
+    dadosAtualizar.dataNascimento = dataNascimento;
+  }
+  
+  if (pais !== cliente?.pais) dadosAtualizar.pais = pais;
+  if (instagram !== cliente?.instagram) dadosAtualizar.instagram = instagram;
+  if (facebook !== cliente?.facebook) dadosAtualizar.facebook = facebook;
+  if (tiktok !== cliente?.tiktok) dadosAtualizar.tiktok = tiktok;
+  if (receberOfertas !== cliente?.receberOfertas) {
+    dadosAtualizar.receberOfertas = receberOfertas;
+  }
+  if (comoConheceu !== cliente?.comoConheceu) dadosAtualizar.comoConheceu = comoConheceu;
+  if (observacoes !== cliente?.observacoes) dadosAtualizar.observacoes = observacoes;
+  if (ativo !== cliente?.ativo) dadosAtualizar.ativo = ativo;
 
-    if (Object.keys(dadosAtualizar).length === 0) {
-      toast.info('Nenhuma alteração detectada');
-      router.push('/dashboard/clientes');
-      return;
-    }
+  if (Object.keys(dadosAtualizar).length === 0) {
+    toast.info('Nenhuma alteração detectada');
+    router.push('/dashboard/clientes');
+    return;
+  }
 
-    try {
-      setLoading(true);
-      await clienteService.atualizar(id, dadosAtualizar);
-      toast.success('Cliente atualizado com sucesso!');
-      router.push('/dashboard/clientes');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erro ao atualizar cliente');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  try {
+    setLoading(true);
+    await clienteService.atualizar(id, dadosAtualizar);
+    toast.success('Cliente atualizado com sucesso!');
+    router.push('/dashboard/clientes');
+  } catch (error: any) {
+    toast.error(error.response?.data?.error || 'Erro ao atualizar cliente');
+  } finally {
+    setLoading(false);
+  }
+};
   const podeEditar = () => {
     return currentUser?.role === 'superadmin' || currentUser?.role === 'admin';
   };

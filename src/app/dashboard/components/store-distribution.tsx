@@ -9,11 +9,17 @@ import {
 } from '@/components/ui/card';
 import {
   dashboardService,
-  StoreDistribution as StoreDistributionType
+  type StoreDistribution
 } from '@/services/dashboardService';
-import { PieChart, Store } from 'lucide-react';
+import { PieChart } from 'lucide-react';
 
-interface CategoryWithPercentage extends StoreDistributionType {
+// 🔥 Interface do componente
+interface CategoryWithPercentage {
+  id: number;
+  categoria: string;
+  _count: {
+    lojas: number;
+  };
   percentage: number;
   color: string;
 }
@@ -36,27 +42,36 @@ export function StoreDistribution() {
   useEffect(() => {
     async function fetchData() {
       try {
+        // 🔥 Dados vindos da API com tipagem original
         const data = await dashboardService.getStoreDistribution();
 
-        const normalized = data.map((item: any) => ({
+        // 🔥 Transforma os dados para o formato esperado
+        const transformed = data.map((item: StoreDistribution) => ({
           categoria: item.categoria,
-          count: item._count?.id ?? 0
+          lojas: item._count?.id || 0 // 🔥 Mapeia id para lojas
         }));
 
-        const total = normalized.reduce((acc, item) => acc + item.count, 0);
+        // 🔥 Calcula o total
+        const total = transformed.reduce((acc, item) => acc + item.lojas, 0);
 
-        const formatted = normalized.map((item, index) => ({
-          ...item,
-          percentage: total > 0 ? Math.round((item.count / total) * 100) : 0,
+        // 🔥 Formata com porcentagens e cores
+        const formatted: CategoryWithPercentage[] = transformed.map((item, index) => ({
+          id: index + 1,
+          categoria: item.categoria,
+          _count: {
+            lojas: item.lojas
+          },
+          percentage: total > 0 
+            ? Number(((item.lojas / total) * 100).toFixed(1)) 
+            : 0,
           color: colors[index % colors.length]
         }));
 
         setCategories(formatted);
 
       } catch (error) {
-        // Erro silencioso - apenas log em desenvolvimento
         if (process.env.NODE_ENV === 'development') {
-          console.error('Erro ao buscar distribuição de lojas');
+          console.error('Erro ao buscar distribuição de lojas', error);
         }
       } finally {
         setLoading(false);
@@ -115,12 +130,12 @@ export function StoreDistribution() {
 
       <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
         <div className="space-y-3 sm:space-y-4">
-          {categories.map((cat, index) => (
-            <div key={index} className="space-y-1 sm:space-y-2">
+          {categories.map((cat) => (
+            <div key={cat.id} className="space-y-1 sm:space-y-2">
               <div className="flex flex-col xs:flex-row xs:justify-between xs:items-center gap-1 text-xs sm:text-sm">
                 <span className="font-medium truncate">{cat.categoria}</span>
                 <span className="text-gray-500 whitespace-nowrap">
-                  {cat.count} {cat.count === 1 ? 'loja' : 'lojas'} ({cat.percentage}%)
+                  {cat._count.lojas} {cat._count.lojas === 1 ? 'loja' : 'lojas'} ({cat.percentage}%)
                 </span>
               </div>
 
@@ -138,7 +153,7 @@ export function StoreDistribution() {
             <div className="flex justify-between items-center text-xs sm:text-sm">
               <span className="font-medium text-gray-700">Total de Lojas</span>
               <span className="text-gray-900 font-bold">
-                {categories.reduce((acc, cat) => acc + cat.count, 0)}
+                {categories.reduce((acc, cat) => acc + cat._count.lojas, 0)}
               </span>
             </div>
           </div>
