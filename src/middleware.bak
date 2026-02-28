@@ -1,0 +1,32 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get('@raiocupon:token')?.value;
+  const path = request.nextUrl.pathname;
+  
+  console.log('=================================');
+  console.log('📍 PATH:', path);
+  console.log('🍪 TOKEN:', token ? 'EXISTE' : 'NÃO EXISTE');
+  console.log('=================================');
+
+  // Se tem token e está na página de login, redireciona para dashboard
+  if (token && path === '/') {
+    console.log('✅ TEM TOKEN NA PÁGINA DE LOGIN - REDIRECIONANDO');
+    // Por enquanto, vamos para admin (depois ajustamos para verificar role)
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // Se não tem token e tenta acessar rota protegida, vai para login
+  if (!token && path !== '/') {
+    console.log('⛔ SEM TOKEN - REDIRECIONANDO PARA LOGIN');
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
+  console.log('✅ PERMITIDO');
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/', '/dashboard/:path*', '/dashboard-loja/:path*']
+};
