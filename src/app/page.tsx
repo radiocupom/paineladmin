@@ -75,7 +75,7 @@ export default function LoginPage() {
             <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1 sm:mb-2">
-            RaioCupon
+            RadioCupon
           </h1>
           <p className="text-sm sm:text-base text-blue-200">
             Área Restrita
@@ -176,7 +176,7 @@ export default function LoginPage() {
 
         {/* Copyright */}
         <p className="text-center text-[10px] sm:text-xs text-blue-300/70 mt-4 sm:mt-6">
-          © {new Date().getFullYear()} RaioCupon. Todos os direitos reservados.
+          © {new Date().getFullYear()} RadioCupon. Todos os direitos reservados.
         </p>
       </div>
 

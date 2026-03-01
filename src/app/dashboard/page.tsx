@@ -48,7 +48,7 @@ export default function DashboardPage() {
             Dashboard Admin
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Visão geral do sistema RaioCupon
+            Visão geral do sistema RadioCupon
           </p>
         </div>
         <div className="flex-shrink-0">

@@ -18,7 +18,7 @@ export function Footer() {
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold text-xs sm:text-sm">RC</span>
               </div>
-              <span className="text-base sm:text-lg font-semibold text-gray-900">RaioCupon</span>
+              <span className="text-base sm:text-lg font-semibold text-gray-900">RadioCupon</span>
             </div>
             <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
               Plataforma completa para gerenciamento de cupons, resgates e fidelização de clientes.
@@ -122,8 +122,8 @@ export function Footer() {
             <ul className="space-y-2 sm:space-y-3">
               <li className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
                 <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                <a href="mailto:suporte@raiocupon.com" className="hover:text-blue-600 transition-colors">
-                  suporte@raiocupon.com
+                <a href="mailto:suporte@radiocupon.com" className="hover:text-blue-600 transition-colors">
+                  suporte@radiocupon.com
                 </a>
               </li>
               <li className="text-xs sm:text-sm text-gray-600">
@@ -138,7 +138,7 @@ export function Footer() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
             {/* Copyright */}
             <p className="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
-              © {currentYear} RaioCupon. Todos os direitos reservados.
+              © {currentYear} RadioCupon. Todos os direitos reservados.
             </p>
 
             {/* Links legais - responsivo */}
@@ -156,7 +156,7 @@ export function Footer() {
 
             {/* Made with love */}
             <p className="text-xs sm:text-sm text-gray-500 flex items-center gap-1">
-              Feito com <Heart className="h-3 w-3 sm:h-4 sm:w-4 text-red-500 fill-red-500" /> por RaioCupon
+              Feito com <Heart className="h-3 w-3 sm:h-4 sm:w-4 text-red-500 fill-red-500" /> por RadioCupon
             </p>
           </div>
         </div>

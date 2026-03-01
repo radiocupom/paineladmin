@@ -64,7 +64,7 @@ export function Header() {
               <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
             <div className="block">
-              <h1 className="text-base sm:text-lg font-semibold text-gray-900">RaioCupon</h1>
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900">RadioCupon</h1>
               <p className="text-xs text-gray-500">Carregando...</p>
             </div>
           </div>
