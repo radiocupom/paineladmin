@@ -75,18 +75,28 @@ export default function CuponsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este cupom?')) return;
+ const handleDelete = async (id: string) => {
+  const cupom = cupons.find(c => c.id === id);
+  
+  // Se tiver resgates, avisa com mensagem amigável
+  if (cupom?._count?.resgates && cupom._count.resgates > 0) {
+    const mensagem = `⚠️ ATENÇÃO ⚠️\n\nEste cupom possui ${cupom._count.resgates} resgate(s) vinculado(s).\nSe você excluir, esses resgates serão perdidos permanentemente.\n\nTem certeza que deseja continuar?`;
     
-    try {
-      await cupomService.deletar(id);
-      toast.success('Cupom excluído com sucesso!');
-      carregarCupons();
-    } catch (error) {
-      toast.error('Erro ao excluir cupom');
-    }
-  };
-
+    if (!confirm(mensagem)) return;
+  } else {
+    // Se não tiver resgates, confirmação normal
+    if (!confirm('Tem certeza que deseja excluir este cupom?')) return;
+  }
+  
+  try {
+    await cupomService.deletar(id);
+    toast.success('Cupom excluído com sucesso!');
+    carregarCupons();
+  } catch (error: any) {
+    console.error('❌ Erro ao deletar:', error);
+    toast.error(error.response?.data?.error || 'Erro ao excluir cupom');
+  }
+};
   const handleGerarQrCodes = async (id: string) => {
     try {
       const quantidadeInput = prompt('Quantos QR codes deseja gerar?', '100');

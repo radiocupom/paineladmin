@@ -108,37 +108,50 @@ export default function ClientesLojaPage() {
   }, []);
 
   const carregarDados = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
+    
+    const lojaId = user?.loja?.id || user?.lojaId;
+    
+    if (!lojaId) {
+      toast.error('ID da loja não encontrado');
+      return;
+    }
+
+    console.log('📤 Buscando clientes da loja:', lojaId);
+    const clientesData = await clienteService.listarClientesLoja(lojaId);
+    
+    console.log('📦 Dados recebidos da API:', clientesData);
+    console.log('📦 Total de clientes:', clientesData?.length || 0);
+
+    // 🔥 ADAPTA OS DADOS para o formato esperado pelo componente
+    const clientesAdaptados = clientesData.map((cliente: any) => {
+      const resgates = cliente.resgates || [];
       
-      // Pega o lojaId do usuário logado (ou usa o fixo para teste)
-      const lojaId = user?.loja?.id || user?.lojaId || '1dd962b5-615a-414e-8b55-ff6273cd6086';
+      // Calcula primeiro e último resgate
+      let primeiroResgate = null;
+      let ultimoResgate = null;
       
-      if (!lojaId) {
-        toast.error('ID da loja não encontrado');
-        return;
+      if (resgates.length > 0) {
+        const datas = resgates.map((r: any) => new Date(r.resgatadoEm).getTime());
+        primeiroResgate = new Date(Math.min(...datas)).toISOString();
+        ultimoResgate = new Date(Math.max(...datas)).toISOString();
       }
 
-      console.log('📤 Buscando clientes da loja:', lojaId);
-      const clientesData = await clienteService.listarClientesLoja(lojaId);
-      console.log('📦 Dados recebidos:', clientesData);
-
-      // 🔥 ADAPTA OS DADOS para o formato ClienteLoja
-      const clientesAdaptados: ClienteLoja[] = clientesData.map((cliente: ClienteWithResgates) => {
-        const resgates = cliente.resgates || [];
-        
-        // Calcula primeiro e último resgate
-        let primeiroResgate = null;
-        let ultimoResgate = null;
-        
-        if (resgates.length > 0) {
-          const datas = resgates.map(r => new Date(r.resgatadoEm).getTime());
-          primeiroResgate = new Date(Math.min(...datas)).toISOString();
-          ultimoResgate = new Date(Math.max(...datas)).toISOString();
-        }
-
-        // Mapeia os resgates
-        const cuponsResgatados = resgates.map(r => ({
+      return {
+        id: cliente.id,
+        nome: cliente.nome,
+        email: cliente.email,
+        whatsapp: cliente.whatsapp,
+        cidade: cliente.cidade,
+        estado: cliente.estado,
+        genero: cliente.genero,
+        dataNascimento: cliente.dataNascimento,
+        primeiroResgate,
+        ultimoResgate,
+        totalResgates: resgates.length,
+        totalCupons: new Set(resgates.map((r: any) => r.cupom.id)).size,
+        cuponsResgatados: resgates.map((r: any) => ({
           id: r.id,
           cupomId: r.cupom.id,
           cupomCodigo: r.cupom.codigo,
@@ -149,35 +162,20 @@ export default function ClientesLojaPage() {
             codigo: r.cupom.codigo,
             descricao: r.cupom.descricao,
           }
-        }));
+        }))
+      };
+    });
 
-        return {
-          id: cliente.id,
-          nome: cliente.nome,
-          email: cliente.email,
-          whatsapp: cliente.whatsapp,
-          cidade: cliente.cidade,
-          estado: cliente.estado,
-          genero: cliente.genero,
-          dataNascimento: cliente.dataNascimento,
-          primeiroResgate,
-          ultimoResgate,
-          totalResgates: resgates.length,
-          totalCupons: new Set(resgates.map(r => r.cupom.id)).size,
-          cuponsResgatados
-        };
-      });
+    console.log('✅ Clientes adaptados:', clientesAdaptados);
+    setClientes(clientesAdaptados);
 
-      console.log('✅ Clientes adaptados:', clientesAdaptados);
-      setClientes(clientesAdaptados);
-
-    } catch (error) {
-      console.error('❌ Erro ao carregar clientes:', error);
-      toast.error('Erro ao carregar clientes');
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error('❌ Erro ao carregar clientes:', error);
+    toast.error('Erro ao carregar clientes');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getDadosGraficoTopClientes = () => {
     if (clientes.length === 0) return [];
