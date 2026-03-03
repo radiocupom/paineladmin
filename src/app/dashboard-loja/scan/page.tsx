@@ -60,9 +60,22 @@ export default function ScanQRCodePage() {
 const iniciarCamera = async () => {
   try {
     setCameraError('');
-    setCameraAtiva(false); // Garantir que começa como false
+    setDebugInfo('🔍 Solicitando permissão da câmera...');
     
-    console.log('📷 Solicitando permissão da câmera...');
+    // Verificar se mediaDevices existe
+    if (!navigator.mediaDevices) {
+      setDebugInfo('❌ navigator.mediaDevices não existe');
+      setCameraError('Navegador não suporta acesso à câmera');
+      return;
+    }
+
+    if (!navigator.mediaDevices.getUserMedia) {
+      setDebugInfo('❌ getUserMedia não suportado');
+      setCameraError('getUserMedia não suportado');
+      return;
+    }
+
+    setDebugInfo('✅ getUserMedia disponível, solicitando permissão...');
     
     const stream = await navigator.mediaDevices.getUserMedia({ 
       video: { 
@@ -72,47 +85,41 @@ const iniciarCamera = async () => {
       } 
     });
     
-    console.log('✅ Permissão concedida, stream obtida');
+    setDebugInfo('✅ Permissão concedida, stream obtida');
     
     if (videoRef.current) {
       videoRef.current.srcObject = stream;
       
-      // Aguardar o vídeo carregar antes de dar play
       videoRef.current.onloadedmetadata = () => {
-        console.log('🎥 Metadata carregada, iniciando play...');
+        setDebugInfo('✅ Metadata carregada, dando play...');
         videoRef.current?.play()
           .then(() => {
-            console.log('✅ Vídeo está tocando');
+            setDebugInfo('✅ Vídeo tocando!');
             setCameraAtiva(true);
             setScanning(true);
             iniciarScan();
           })
           .catch((playError) => {
-            console.error('❌ Erro ao dar play:', playError);
-            setCameraError('Erro ao iniciar a reprodução do vídeo');
+            setDebugInfo(`❌ Erro no play: ${playError.message}`);
+            setCameraError('Erro ao iniciar reprodução');
           });
       };
     }
   } catch (error: any) {
-    console.error('❌ Erro detalhado:', error);
+    setDebugInfo(`❌ Erro: ${error.name} - ${error.message}`);
     
     let mensagem = 'Não foi possível acessar a câmera. ';
-    
-    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-      mensagem += 'Permissão negada. Verifique as permissões do navegador.';
-    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-      mensagem += 'Nenhuma câmera encontrada no dispositivo.';
-    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-      mensagem += 'A câmera está sendo usada por outro aplicativo.';
-    } else {
-      mensagem += error.message || 'Erro desconhecido';
-    }
+    if (error.name === 'NotAllowedError') mensagem += 'Permissão negada.';
+    else if (error.name === 'NotFoundError') mensagem += 'Nenhuma câmera encontrada.';
+    else if (error.name === 'NotReadableError') mensagem += 'Câmera em uso.';
+    else mensagem += error.message;
     
     setCameraError(mensagem);
-    setCameraAtiva(false);
   }
 };
 
+// Adicione um estado para debug
+const [debugInfo, setDebugInfo] = useState<string>('');
 const pararCamera = () => {
   console.log('🛑 Parando câmera...');
   
@@ -330,22 +337,17 @@ const iniciarScan = () => {
   </div>
 )}
 
-                {cameraError && (
-                  <div className="text-center py-8 sm:py-12">
-                    <CameraOff className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-red-400 mb-3 sm:mb-4" />
-                    <h3 className="text-base sm:text-lg font-medium text-red-600 mb-1 sm:mb-2">Erro na câmera</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">{cameraError}</p>
-                    <Button 
-                      onClick={iniciarCamera} 
-                      variant="outline" 
-                      className="h-8 sm:h-9 text-xs sm:text-sm px-3 sm:px-4 gap-1 sm:gap-2"
-                    >
-                      <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4" />
-                      Tentar Novamente
-                    </Button>
-                  </div>
-                )}
+              {cameraError && (
+  <div className="bg-red-50 p-3 rounded-lg mt-2">
+    <p className="text-xs text-red-700">{cameraError}</p>
+  </div>
+)}
 
+{debugInfo && (
+  <div className="bg-blue-50 p-3 rounded-lg mt-2">
+    <p className="text-xs text-blue-700">{debugInfo}</p>
+  </div>
+)}
                 {cameraAtiva && (
                   <div className="relative">
                     <video
