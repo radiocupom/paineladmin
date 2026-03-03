@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Loader2, 
@@ -15,7 +14,8 @@ import {
   Tag, 
   Hash,
   Store,
-  Calendar
+  Calendar,
+  QrCode
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,10 +36,11 @@ interface DadosValidacao {
     };
     dataExpiracao: string;
   };
+  codigoQR?: string; // ← ADICIONA ISSO!
 }
 
 export default function ValidarQRCodePage() {
-  const { user, loading: authLoading } = useAuth(); // 🔥 CORRIGIDO: loading ao invés de isLoading
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
   
@@ -52,22 +53,20 @@ export default function ValidarQRCodePage() {
   const [dados, setDados] = useState<DadosValidacao | null>(null);
   const [validando, setValidando] = useState(false);
   const [validado, setValidado] = useState(false);
-  const [codigoLoja, setCodigoLoja] = useState('');
   const [mensagem, setMensagem] = useState('');
 
-  // 🔥 VERIFICAR AUTENTICAÇÃO PRIMEIRO
+  // 🔥 VERIFICAR AUTENTICAÇÃO
   useEffect(() => {
     if (!authLoading && !user) {
-      // Salvar a URL atual para redirecionar de volta após o login
       localStorage.setItem('@radiocupon:redirectAfterLogin', window.location.pathname);
       router.push('/login?role=loja');
     }
   }, [user, authLoading, router]);
 
-  // Buscar dados do cliente e cupom (só se estiver autenticado)
+  // Buscar dados
   useEffect(() => {
     const buscarDados = async () => {
-      if (!user) return; // 🔥 Só busca se estiver logado
+      if (!user) return;
       
       try {
         setLoading(true);
@@ -86,12 +85,10 @@ export default function ValidarQRCodePage() {
         
         if (!response.ok) {
           if (response.status === 401) {
-            // Token expirado, redirecionar para login
             localStorage.removeItem('@raiocupon:token');
             router.push('/login?role=loja');
             return;
           }
-          
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || 'Erro ao carregar dados');
         }
@@ -115,18 +112,18 @@ export default function ValidarQRCodePage() {
     }
   }, [clienteId, cupomId, sequencial, user, router]);
 
-  // Função para validar o QR code
+  // 🔥 FUNÇÃO DE VALIDAÇÃO (USA OS PRÓPRIOS PARÂMETROS)
   const handleValidar = async () => {
-    if (!codigoLoja.trim()) {
-      toast.error('Digite o código do QR code');
-      return;
-    }
-
     try {
       setValidando(true);
       setMensagem('');
 
       const token = localStorage.getItem('@raiocupon:token');
+      
+      // 🔥 CONSTRÓI O CÓDIGO A PARTIR DOS DADOS
+      // Exemplo: "teste-9-123456789" - mas precisa do timestamp real
+      // Idealmente o backend retorna o códigoQR completo
+      const codigoValidacao = dados?.codigoQR || `${dados?.cupom.codigo}-${sequencial}-${Date.now()}`;
       
       const response = await fetch('https://api.radiocupom.online/api/front/validar-qrcode', {
         method: 'POST',
@@ -134,7 +131,7 @@ export default function ValidarQRCodePage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ codigo: codigoLoja.trim() })
+        body: JSON.stringify({ codigo: codigoValidacao })
       });
 
       const data = await response.json();
@@ -155,15 +152,17 @@ export default function ValidarQRCodePage() {
     }
   };
 
-  // Mostrar loading enquanto verifica autenticação
-  if (authLoading) {
+  // Loading states...
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <Loader2 className="h-12 w-12 animate-spin mx-auto text-orange-600 mb-4" />
-              <p className="text-gray-600">Verificando autenticação...</p>
+              <p className="text-gray-600">
+                {authLoading ? 'Verificando autenticação...' : 'Carregando dados...'}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -171,25 +170,7 @@ export default function ValidarQRCodePage() {
     );
   }
 
-  // Se não tem user, não renderiza nada (o useEffect já redirecionou)
-  if (!user) {
-    return null;
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <Loader2 className="h-12 w-12 animate-spin mx-auto text-orange-600 mb-4" />
-              <p className="text-gray-600">Carregando dados do resgate...</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  if (!user) return null;
 
   if (error) {
     return (
@@ -200,20 +181,11 @@ export default function ValidarQRCodePage() {
               <XCircle className="h-10 w-10 text-red-600" />
             </div>
             <CardTitle className="text-xl text-red-700">QR Code Inválido</CardTitle>
-            <CardDescription className="text-red-600">
-              Não foi possível carregar os dados
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-            
-            <div className="text-center text-sm text-gray-500 mb-4">
-              <p>ID: {clienteId?.substring(0, 8)}...</p>
-              <p>Protocolo: {sequencial}</p>
-            </div>
-
             <Button 
               onClick={() => window.location.reload()}
               variant="outline"
@@ -242,7 +214,7 @@ export default function ValidarQRCodePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 py-4 sm:py-8 px-4">
       <div className="max-w-md mx-auto">
-        {/* Header com info do lojista */}
+        {/* Header */}
         <div className="bg-white rounded-t-lg p-3 mb-1 shadow-sm">
           <p className="text-xs text-gray-600">
             Logado como: <span className="font-medium">{user.nome || user.email}</span>
@@ -266,8 +238,8 @@ export default function ValidarQRCodePage() {
               </div>
             ) : (
               <div className="flex items-center justify-center gap-2">
-                <Hash className="h-4 w-4" />
-                <span>AGUARDANDO VALIDAÇÃO</span>
+                <QrCode className="h-4 w-4" />
+                <span>PRONTO PARA VALIDAR</span>
               </div>
             )}
           </div>
@@ -281,9 +253,6 @@ export default function ValidarQRCodePage() {
               </div>
               <p className="text-lg sm:text-xl font-mono font-bold text-center bg-white p-2 rounded border">
                 {sequencial}
-              </p>
-              <p className="text-[10px] text-gray-400 text-center mt-1">
-                Confira se este número corresponde ao QR code
               </p>
             </div>
 
@@ -320,59 +289,43 @@ export default function ValidarQRCodePage() {
               </div>
             </div>
 
-            {/* Formulário de Validação */}
+            {/* Mensagem de erro/sucesso */}
+            {mensagem && (
+              <Alert variant={mensagem.includes('sucesso') ? 'default' : 'destructive'}>
+                <AlertDescription className="text-xs sm:text-sm">
+                  {mensagem}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* 🔥 BOTÃO ÚNICO DE VALIDAÇÃO (SEM CAMPO DE TEXTO) */}
             {!validado ? (
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-700 mb-1 block">
-                    Código do QR Code
-                  </label>
-                  <Input
-                    placeholder="Digite o código do QR code"
-                    value={codigoLoja}
-                    onChange={(e) => setCodigoLoja(e.target.value)}
-                    disabled={validando}
-                    className="h-9 sm:h-10 text-sm"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    O código está na parte inferior do QR code
-                  </p>
-                </div>
-
-                {mensagem && (
-                  <Alert variant={mensagem.includes('sucesso') ? 'default' : 'destructive'}>
-                    <AlertDescription className="text-xs sm:text-sm">
-                      {mensagem}
-                    </AlertDescription>
-                  </Alert>
+              <Button
+                onClick={handleValidar}
+                disabled={validando}
+                className="w-full h-12 text-base gap-2 bg-orange-600 hover:bg-orange-700"
+                size="lg"
+              >
+                {validando ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5" />
                 )}
-
-                <Button
-                  onClick={handleValidar}
-                  disabled={validando || !codigoLoja.trim()}
-                  className="w-full h-9 sm:h-10 text-sm gap-2"
-                >
-                  {validando ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4" />
-                  )}
-                  {validando ? 'Validando...' : 'Confirmar Validação'}
-                </Button>
-              </div>
+                {validando ? 'Validando...' : 'VALIDAR QR CODE'}
+              </Button>
             ) : (
               <div className="text-center py-2">
-                <div className="bg-green-100 text-green-700 p-3 rounded-lg mb-3">
-                  <CheckCircle2 className="h-8 w-8 mx-auto mb-2" />
+                <div className="bg-green-100 text-green-700 p-4 rounded-lg mb-3">
+                  <CheckCircle2 className="h-12 w-12 mx-auto mb-2" />
                   <p className="text-sm font-medium">Resgate validado com sucesso!</p>
                   <p className="text-xs mt-1">O cliente já pode utilizar o benefício</p>
                 </div>
                 <Button
                   variant="outline"
-                  onClick={() => window.location.reload()}
-                  className="w-full h-8 text-xs"
+                  onClick={() => window.location.href = '/dashboard/dashboard-loja'}
+                  className="w-full h-10 text-sm"
                 >
-                  Validar Outro QR Code
+                  Voltar ao Painel
                 </Button>
               </div>
             )}
@@ -389,7 +342,6 @@ export default function ValidarQRCodePage() {
   );
 }
 
-// Helper function para className condicional
 function cn(...classes: any[]) {
   return classes.filter(Boolean).join(' ');
 }
