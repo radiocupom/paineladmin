@@ -56,73 +56,119 @@ export default function ScanQRCodePage() {
   const [resultadoDialog, setResultadoDialog] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
 
-  // ================= FUNÇÕES DA CÂMERA =================
-  const iniciarCamera = async () => {
-    try {
-      setCameraError('');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
+  // ================= FUNÇÕES DA CÂMERA CORRIGIDAS =================
+const iniciarCamera = async () => {
+  try {
+    setCameraError('');
+    setCameraAtiva(false); // Garantir que começa como false
+    
+    console.log('📷 Solicitando permissão da câmera...');
+    
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: 'environment',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      } 
+    });
+    
+    console.log('✅ Permissão concedida, stream obtida');
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setCameraAtiva(true);
-        setScanning(true);
-        iniciarScan();
-      }
-    } catch (error) {
-      setCameraError('Não foi possível acessar a câmera. Verifique as permissões.');
-      setCameraAtiva(false);
+      // Aguardar o vídeo carregar antes de dar play
+      videoRef.current.onloadedmetadata = () => {
+        console.log('🎥 Metadata carregada, iniciando play...');
+        videoRef.current?.play()
+          .then(() => {
+            console.log('✅ Vídeo está tocando');
+            setCameraAtiva(true);
+            setScanning(true);
+            iniciarScan();
+          })
+          .catch((playError) => {
+            console.error('❌ Erro ao dar play:', playError);
+            setCameraError('Erro ao iniciar a reprodução do vídeo');
+          });
+      };
     }
-  };
-
-  const pararCamera = () => {
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
+  } catch (error: any) {
+    console.error('❌ Erro detalhado:', error);
+    
+    let mensagem = 'Não foi possível acessar a câmera. ';
+    
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      mensagem += 'Permissão negada. Verifique as permissões do navegador.';
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      mensagem += 'Nenhuma câmera encontrada no dispositivo.';
+    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      mensagem += 'A câmera está sendo usada por outro aplicativo.';
+    } else {
+      mensagem += error.message || 'Erro desconhecido';
     }
     
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    
+    setCameraError(mensagem);
     setCameraAtiva(false);
-    setScanning(false);
-  };
+  }
+};
 
-  const iniciarScan = () => {
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
+const pararCamera = () => {
+  console.log('🛑 Parando câmera...');
+  
+  if (scanIntervalRef.current) {
+    clearInterval(scanIntervalRef.current);
+    scanIntervalRef.current = null;
+  }
+  
+  if (videoRef.current?.srcObject) {
+    const stream = videoRef.current.srcObject as MediaStream;
+    stream.getTracks().forEach(track => {
+      track.stop();
+      console.log('📹 Track parada:', track.kind);
+    });
+    videoRef.current.srcObject = null;
+  }
+  
+  setCameraAtiva(false);
+  setScanning(false);
+  console.log('✅ Câmera parada');
+};
+
+const iniciarScan = () => {
+  if (scanIntervalRef.current) {
+    clearInterval(scanIntervalRef.current);
+  }
+
+  scanIntervalRef.current = setInterval(() => {
+    if (!cameraAtiva || !videoRef.current || !canvasRef.current || validando) {
+      return;
     }
-
-    scanIntervalRef.current = setInterval(() => {
-      if (!cameraAtiva || !videoRef.current || !canvasRef.current || validando) return;
+    
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    
+    // Verificar se o vídeo tem dados suficientes
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      if (!context) return;
       
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        
-        const context = canvas.getContext('2d');
-        if (!context) return;
-        
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, canvas.width, canvas.height);
-        
-        if (code && code.data !== ultimoCodigo) {
-          setUltimoCodigo(code.data);
-          validarQRCode(code.data);
-        }
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, canvas.width, canvas.height);
+      
+      if (code && code.data !== ultimoCodigo) {
+        console.log('📌 QR Code detectado:', code.data.substring(0, 20) + '...');
+        setUltimoCodigo(code.data);
+        validarQRCode(code.data);
       }
-    }, 500);
-  };
+    }
+  }, 300); // Reduzi para 300ms para mais responsividade
+};
 
   // ================= FUNÇÃO DE VALIDAÇÃO =================
   const validarQRCode = async (codigo: string) => {
@@ -267,22 +313,22 @@ export default function ScanQRCodePage() {
             <Card>
               <CardContent className="p-3 sm:p-6">
                 {!cameraAtiva && !cameraError && (
-                  <div className="text-center py-8 sm:py-12">
-                    <Camera className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-3 sm:mb-4" />
-                    <h3 className="text-base sm:text-lg font-medium mb-1 sm:mb-2">Câmera desativada</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
-                      Clique no botão abaixo para ativar a câmera
-                    </p>
-                    <Button 
-                      onClick={iniciarCamera} 
-                      size="lg" 
-                      className="h-8 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 gap-1 sm:gap-2"
-                    >
-                      <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
-                      Ativar Câmera
-                    </Button>
-                  </div>
-                )}
+  <div className="text-center py-8 sm:py-12">
+    <Camera className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-3 sm:mb-4" />
+    <h3 className="text-base sm:text-lg font-medium mb-1 sm:mb-2">Câmera desativada</h3>
+    <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
+      Clique no botão abaixo para ativar a câmera
+    </p>
+    <Button 
+      onClick={iniciarCamera} 
+      size="lg" 
+      className="h-8 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 gap-1 sm:gap-2"
+    >
+      <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
+      Ativar Câmera
+    </Button>
+  </div>
+)}
 
                 {cameraError && (
                   <div className="text-center py-8 sm:py-12">
