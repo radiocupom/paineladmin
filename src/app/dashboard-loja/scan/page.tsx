@@ -55,127 +55,127 @@ export default function ScanQRCodePage() {
   const [ultimoCodigo, setUltimoCodigo] = useState<string>('');
   const [resultadoDialog, setResultadoDialog] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
-  // ================= FUNÇÕES DA CÂMERA CORRIGIDAS =================
-const iniciarCamera = async () => {
-  try {
-    setCameraError('');
-    setDebugInfo('🔍 Solicitando permissão da câmera...');
-    
-    // Verificar se mediaDevices existe
-    if (!navigator.mediaDevices) {
-      setDebugInfo('❌ navigator.mediaDevices não existe');
-      setCameraError('Navegador não suporta acesso à câmera');
-      return;
-    }
-
-    if (!navigator.mediaDevices.getUserMedia) {
-      setDebugInfo('❌ getUserMedia não suportado');
-      setCameraError('getUserMedia não suportado');
-      return;
-    }
-
-    setDebugInfo('✅ getUserMedia disponível, solicitando permissão...');
-    
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        facingMode: 'environment',
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      } 
-    });
-    
-    setDebugInfo('✅ Permissão concedida, stream obtida');
-    
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
+  // ================= FUNÇÕES DA CÂMERA =================
+  const iniciarCamera = async () => {
+    try {
+      setCameraError('');
+      setDebugInfo('🔍 Solicitando permissão da câmera...');
       
-      videoRef.current.onloadedmetadata = () => {
-        setDebugInfo('✅ Metadata carregada, dando play...');
-        videoRef.current?.play()
-          .then(() => {
-            setDebugInfo('✅ Vídeo tocando!');
-            setCameraAtiva(true);
-            setScanning(true);
-            iniciarScan();
-          })
-          .catch((playError) => {
-            setDebugInfo(`❌ Erro no play: ${playError.message}`);
-            setCameraError('Erro ao iniciar reprodução');
-          });
-      };
-    }
-  } catch (error: any) {
-    setDebugInfo(`❌ Erro: ${error.name} - ${error.message}`);
-    
-    let mensagem = 'Não foi possível acessar a câmera. ';
-    if (error.name === 'NotAllowedError') mensagem += 'Permissão negada.';
-    else if (error.name === 'NotFoundError') mensagem += 'Nenhuma câmera encontrada.';
-    else if (error.name === 'NotReadableError') mensagem += 'Câmera em uso.';
-    else mensagem += error.message;
-    
-    setCameraError(mensagem);
-  }
-};
-
-// Adicione um estado para debug
-const [debugInfo, setDebugInfo] = useState<string>('');
-const pararCamera = () => {
-  console.log('🛑 Parando câmera...');
-  
-  if (scanIntervalRef.current) {
-    clearInterval(scanIntervalRef.current);
-    scanIntervalRef.current = null;
-  }
-  
-  if (videoRef.current?.srcObject) {
-    const stream = videoRef.current.srcObject as MediaStream;
-    stream.getTracks().forEach(track => {
-      track.stop();
-      console.log('📹 Track parada:', track.kind);
-    });
-    videoRef.current.srcObject = null;
-  }
-  
-  setCameraAtiva(false);
-  setScanning(false);
-  console.log('✅ Câmera parada');
-};
-
-const iniciarScan = () => {
-  if (scanIntervalRef.current) {
-    clearInterval(scanIntervalRef.current);
-  }
-
-  scanIntervalRef.current = setInterval(() => {
-    if (!cameraAtiva || !videoRef.current || !canvasRef.current || validando) {
-      return;
-    }
-    
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    
-    // Verificar se o vídeo tem dados suficientes
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const context = canvas.getContext('2d');
-      if (!context) return;
-      
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, canvas.width, canvas.height);
-      
-      if (code && code.data !== ultimoCodigo) {
-        console.log('📌 QR Code detectado:', code.data.substring(0, 20) + '...');
-        setUltimoCodigo(code.data);
-        validarQRCode(code.data);
+      if (!navigator.mediaDevices) {
+        setDebugInfo('❌ navigator.mediaDevices não existe');
+        setCameraError('Navegador não suporta acesso à câmera');
+        return;
       }
+
+      if (!navigator.mediaDevices.getUserMedia) {
+        setDebugInfo('❌ getUserMedia não suportado');
+        setCameraError('getUserMedia não suportado');
+        return;
+      }
+
+      setDebugInfo('✅ getUserMedia disponível, solicitando permissão...');
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      
+      setDebugInfo('✅ Permissão concedida, stream obtida');
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        
+        // 🔥 CONFIGURAÇÕES ESSENCIAIS PARA iOS
+        videoRef.current.playsInline = true;
+        videoRef.current.muted = true;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('autoplay', 'true');
+        
+        // Tentar dar play imediatamente
+        try {
+          await videoRef.current.play();
+          setDebugInfo('✅ Vídeo tocando!');
+          setCameraAtiva(true);
+          setScanning(true);
+          iniciarScan();
+        } catch (playError: any) {
+          setDebugInfo(`❌ Erro no play: ${playError.message}`);
+          setCameraError('Erro ao iniciar reprodução');
+        }
+      }
+    } catch (error: any) {
+      setDebugInfo(`❌ Erro: ${error.name} - ${error.message}`);
+      
+      let mensagem = 'Não foi possível acessar a câmera. ';
+      if (error.name === 'NotAllowedError') mensagem += 'Permissão negada.';
+      else if (error.name === 'NotFoundError') mensagem += 'Nenhuma câmera encontrada.';
+      else if (error.name === 'NotReadableError') mensagem += 'Câmera em uso.';
+      else mensagem += error.message;
+      
+      setCameraError(mensagem);
     }
-  }, 300); // Reduzi para 300ms para mais responsividade
-};
+  };
+
+  const pararCamera = () => {
+    console.log('🛑 Parando câmera...');
+    
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('📹 Track parada:', track.kind);
+      });
+      videoRef.current.srcObject = null;
+    }
+    
+    setCameraAtiva(false);
+    setScanning(false);
+    console.log('✅ Câmera parada');
+  };
+
+  const iniciarScan = () => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+    }
+
+    scanIntervalRef.current = setInterval(() => {
+      if (!cameraAtiva || !videoRef.current || !canvasRef.current || validando) {
+        return;
+      }
+      
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        const context = canvas.getContext('2d');
+        if (!context) return;
+        
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, canvas.width, canvas.height);
+        
+        if (code && code.data !== ultimoCodigo) {
+          console.log('📌 QR Code detectado:', code.data.substring(0, 20) + '...');
+          setUltimoCodigo(code.data);
+          validarQRCode(code.data);
+        }
+      }
+    }, 300);
+  };
 
   // ================= FUNÇÃO DE VALIDAÇÃO =================
   const validarQRCode = async (codigo: string) => {
@@ -320,40 +320,52 @@ const iniciarScan = () => {
             <Card>
               <CardContent className="p-3 sm:p-6">
                 {!cameraAtiva && !cameraError && (
-  <div className="text-center py-8 sm:py-12">
-    <Camera className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-3 sm:mb-4" />
-    <h3 className="text-base sm:text-lg font-medium mb-1 sm:mb-2">Câmera desativada</h3>
-    <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
-      Clique no botão abaixo para ativar a câmera
-    </p>
-    <Button 
-      onClick={iniciarCamera} 
-      size="lg" 
-      className="h-8 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 gap-1 sm:gap-2"
-    >
-      <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
-      Ativar Câmera
-    </Button>
-  </div>
-)}
+                  <div className="text-center py-8 sm:py-12">
+                    <Camera className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-3 sm:mb-4" />
+                    <h3 className="text-base sm:text-lg font-medium mb-1 sm:mb-2">Câmera desativada</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
+                      Clique no botão abaixo para ativar a câmera
+                    </p>
+                    <Button 
+                      onClick={iniciarCamera} 
+                      size="lg" 
+                      className="h-8 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 gap-1 sm:gap-2"
+                    >
+                      <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
+                      Ativar Câmera
+                    </Button>
+                  </div>
+                )}
 
-              {cameraError && (
-  <div className="bg-red-50 p-3 rounded-lg mt-2">
-    <p className="text-xs text-red-700">{cameraError}</p>
-  </div>
-)}
+                {cameraError && (
+                  <div className="bg-red-50 p-3 rounded-lg mt-2">
+                    <p className="text-xs text-red-700">{cameraError}</p>
+                  </div>
+                )}
 
-{debugInfo && (
-  <div className="bg-blue-50 p-3 rounded-lg mt-2">
-    <p className="text-xs text-blue-700">{debugInfo}</p>
-  </div>
-)}
+                {debugInfo && (
+                  <div className="bg-blue-50 p-3 rounded-lg mt-2">
+                    <p className="text-xs text-blue-700">{debugInfo}</p>
+                  </div>
+                )}
+
                 {cameraAtiva && (
                   <div className="relative">
+                    {/* 🔥 VÍDEO COM CONFIGURAÇÕES CORRETAS PARA iOS */}
                     <video
                       ref={videoRef}
                       className="w-full rounded-lg border-2 border-orange-200"
-                      style={{ maxHeight: '350px', objectFit: 'cover' }}
+                      style={{ 
+                        maxHeight: '350px', 
+                        objectFit: 'cover',
+                        transform: 'scaleX(-1)', // Espelha para ficar como selfie
+                        width: '100%',
+                        height: 'auto',
+                        display: 'block'
+                      }}
+                      playsInline
+                      autoPlay
+                      muted
                     />
                     
                     {/* Overlay de scan */}
