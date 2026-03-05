@@ -11,7 +11,7 @@ import { Trophy, Medal, Award, TrendingUp } from 'lucide-react';
 import {
   dashboardService,
   StoreRanking as StoreRankingType
-} from '@/services/dashboardService';
+} from '@/services/adminDashboardService';
 
 interface RankingItem extends StoreRankingType {
   pos: number;

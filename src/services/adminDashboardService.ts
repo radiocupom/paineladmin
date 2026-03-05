@@ -61,51 +61,74 @@ export interface QRCode {
 }
 
 // ============================================================================
-// TIPOS DO LOJISTA (APENAS)
+// TIPOS DO ADMIN (VISÃO GLOBAL)
 // ============================================================================
 
-export interface LojaKPIs {
-  loja: {
-    id: string;
-    nome: string;
-  };
-  cupons: {
-    total: number;
-    ativos: number;
-    expirados: number;
-    comPreco: number;
-  };
-  resgates: {
-    total: number;
-    hoje: number;
-    semana: number;
-    mes: number;
-  };
-  qrCodes: {
-    total: number;
-    validados: number;
-    pendentes: number;
-  };
-  clientes: {
-    total: number;
-  };
-  financeiro: {
-    valorTotalResgatado: number;
-    valorTotalVendido: number;
-    valorTotalEconomizado: number;
-    ticketMedio: number;
-  };
+export interface AdminKPIs {
+  // Lojas
+  totalLojas: number;
+  lojasAtivas: number;
+  lojasInativas: number;
+  
+  // Usuários
+  totalUsuarios: number;
+  
+  // Clientes
+  totalClientes: number;
+  
+  // Cupons
+  totalCupons: number;
+  cuponsAtivos: number;
+  cuponsExpirados: number;
+  cuponsComPreco: number;
+  
+  // Resgates
+  totalResgates: number;
+  resgatesHoje: number;
+  resgatesSemana: number;
+  resgatesMes: number;
+  
+  // QR Codes
+  totalQrCodes: number;
+  qrCodesValidados: number;
+  qrCodesPendentes: number;
+  
+  // Financeiro
+  valorTotalResgatado: number;
+  valorTotalVendido: number;
+  valorTotalEconomizado: number;
+  ticketMedio: number;
+  taxaConversao: number;
 }
 
-export interface ResgateLoja extends Resgate {
-  cliente: Cliente;
-  cupom: Cupom;
+export interface RecentTransaction {
+  id: string;
+  quantidade: number;
   quantidadeValidada: number;
+  resgatadoEm: string;
   status: 'pendente' | 'parcial' | 'validado';
-  valorOriginal: number;
-  valorPago: number;
-  economia: number;
-  qrCodes: QRCode[];
+  cliente: {
+    id: string;
+    nome: string;
+    email: string;
+    whatsapp: string;
+  };
+  cupom: {
+    id: string;
+    descricao: string;
+    codigo: string;
+    precoOriginal?: number;
+    precoComDesconto?: number;
+    loja: {
+      id: string;
+      nome: string;
+    };
+  };
+  qrCodes: Array<{
+    id: string;
+    validado: boolean;
+    validadoEm?: string;
+  }>;
 }
 
 export interface CupomPopular {
@@ -119,6 +142,7 @@ export interface CupomPopular {
   totalResgates: number;
   dataExpiracao?: string;
   valorTotalGerado: number;
+  lojaNome?: string;
 }
 
 export interface ResgatePorDia {
@@ -153,14 +177,6 @@ export interface QRCodeStats {
   tempoMedioValidacao: number;
 }
 
-export interface LojaDashboardData {
-  kpis: LojaKPIs;
-  ultimosResgates: ResgateLoja[];
-  cuponsPopulares: CupomPopular[];
-  resgatesPorDia: ResgatePorDia[];
-  qrCodeStats: QRCodeStats;
-}
-
 export interface QRCodeWithFilters {
   data: QRCode[];
   pagination: {
@@ -169,6 +185,42 @@ export interface QRCodeWithFilters {
     total: number;
     totalPages: number;
   };
+}
+
+export interface StoreDistribution {
+  categoria: string;
+  categoriaLabel: string;
+  _count: {
+    id: number;
+  };
+  quantidade: number;
+  percentual: number;
+}
+
+export interface StoreRanking {
+  lojaId: string;
+  lojaNome: string;
+  totalResgates: number;
+  valorTotal: number;
+  clientesUnicos: number;
+  cuponsUtilizados: number;
+}
+
+export interface GrowthMetrics {
+  totalLojas: number;
+  totalClientes: number;
+  totalResgates: number;
+}
+
+export interface AdminDashboardData {
+  kpis: AdminKPIs;
+  recentTransactions: RecentTransaction[];
+  cuponsPopulares: CupomPopular[];
+  resgatesPorDia: ResgatePorDia[];
+  qrCodeStats: QRCodeStats;
+  storeDistribution: StoreDistribution[];
+  storeRanking: StoreRanking[];
+  growthMetrics: GrowthMetrics;
 }
 
 // ============================================================================
@@ -242,23 +294,23 @@ export const formatters = {
 };
 
 // ============================================================================
-// SERVIÇOS DO LOJISTA (APENAS)
+// SERVIÇOS DO ADMIN (VISÃO GLOBAL)
 // ============================================================================
 
-export const lojaDashboardService = {
+export const adminDashboardService = {
   /**
-   * Busca KPIs da loja logada
+   * Busca KPIs do admin (visão global)
    */
-  async getKPIs(): Promise<LojaKPIs> {
-    const response = await api.get('/dashboard-loja/kpis');
+  async getKPIs(): Promise<AdminKPIs> {
+    const response = await api.get('/admin/kpis');
     return response.data.data;
   },
 
   /**
-   * Busca últimos resgates da loja
+   * Busca transações recentes
    */
-  async getUltimosResgates(limit: number = 10): Promise<ResgateLoja[]> {
-    const response = await api.get(`/dashboard-loja/ultimos-resgates?limit=${limit}`);
+  async getRecentTransactions(limit: number = 10): Promise<RecentTransaction[]> {
+    const response = await api.get(`/admin/recent-transactions?limit=${limit}`);
     return response.data.data;
   },
 
@@ -266,7 +318,7 @@ export const lojaDashboardService = {
    * Busca cupons mais resgatados
    */
   async getCuponsPopulares(limit: number = 5): Promise<CupomPopular[]> {
-    const response = await api.get(`/dashboard-loja/cupons-populares?limit=${limit}`);
+    const response = await api.get(`/admin/cupons-populares?limit=${limit}`);
     return response.data.data;
   },
 
@@ -274,7 +326,7 @@ export const lojaDashboardService = {
    * Busca resgates por dia (últimos 7 dias)
    */
   async getResgatesPorDia(): Promise<ResgatePorDia[]> {
-    const response = await api.get('/dashboard-loja/resgates-por-dia');
+    const response = await api.get('/admin/resgates-por-dia');
     return response.data.data;
   },
 
@@ -282,7 +334,7 @@ export const lojaDashboardService = {
    * Busca QR codes resgatados
    */
   async getQrCodesResgatados(limit: number = 50): Promise<QRCode[]> {
-    const response = await api.get(`/dashboard-loja/qrcodes/resgatados?limit=${limit}`);
+    const response = await api.get(`/admin/qrcodes/resgatados?limit=${limit}`);
     return response.data.data;
   },
 
@@ -290,7 +342,7 @@ export const lojaDashboardService = {
    * Busca QR codes validados
    */
   async getQrCodesValidados(limit: number = 50): Promise<QRCode[]> {
-    const response = await api.get(`/dashboard-loja/qrcodes/validados?limit=${limit}`);
+    const response = await api.get(`/admin/qrcodes/validados?limit=${limit}`);
     return response.data.data;
   },
 
@@ -298,7 +350,7 @@ export const lojaDashboardService = {
    * Busca estatísticas de QR codes
    */
   async getQrCodeStats(): Promise<QRCodeStats> {
-    const response = await api.get('/dashboard-loja/qrcodes/stats');
+    const response = await api.get('/admin/qrcodes/stats');
     return response.data.data;
   },
 
@@ -309,6 +361,7 @@ export const lojaDashboardService = {
     status?: 'validado' | 'pendente';
     dataInicio?: string;
     dataFim?: string;
+    lojaId?: string;
     clienteId?: string;
     cupomId?: string;
     page?: number;
@@ -319,12 +372,13 @@ export const lojaDashboardService = {
     if (filters.status) params.append('status', filters.status);
     if (filters.dataInicio) params.append('dataInicio', filters.dataInicio);
     if (filters.dataFim) params.append('dataFim', filters.dataFim);
+    if (filters.lojaId) params.append('lojaId', filters.lojaId);
     if (filters.clienteId) params.append('clienteId', filters.clienteId);
     if (filters.cupomId) params.append('cupomId', filters.cupomId);
     if (filters.page) params.append('page', filters.page.toString());
     if (filters.limit) params.append('limit', filters.limit.toString());
     
-    const response = await api.get(`/dashboard-loja/qrcodes/filters?${params}`);
+    const response = await api.get(`/admin/qrcodes/filters?${params}`);
     return response.data.data;
   },
 
@@ -337,7 +391,7 @@ export const lojaDashboardService = {
     limit: number = 50
   ): Promise<QRCode[]> {
     const response = await api.get(
-      `/dashboard-loja/qrcodes/resgatados/periodo?dataInicio=${dataInicio}&dataFim=${dataFim}&limit=${limit}`
+      `/admin/qrcodes/resgatados/periodo?dataInicio=${dataInicio}&dataFim=${dataFim}&limit=${limit}`
     );
     return response.data.data;
   },
@@ -351,46 +405,62 @@ export const lojaDashboardService = {
     limit: number = 50
   ): Promise<QRCode[]> {
     const response = await api.get(
-      `/dashboard-loja/qrcodes/validados/periodo?dataInicio=${dataInicio}&dataFim=${dataFim}&limit=${limit}`
+      `/admin/qrcodes/validados/periodo?dataInicio=${dataInicio}&dataFim=${dataFim}&limit=${limit}`
     );
     return response.data.data;
   },
 
   /**
-   * Busca taxa de validação
+   * Busca taxa de validação global
    */
   async getTaxaValidacao(): Promise<number> {
-    const response = await api.get('/dashboard-loja/qrcodes/taxa-validacao');
+    const response = await api.get('/admin/qrcodes/taxa-validacao');
     return response.data.data.taxa;
   },
 
   /**
-   * Busca tempo médio de validação
+   * Busca tempo médio de validação global
    */
   async getTempoMedioValidacao(): Promise<number> {
-    const response = await api.get('/dashboard-loja/qrcodes/tempo-medio-validacao');
+    const response = await api.get('/admin/qrcodes/tempo-medio-validacao');
     return response.data.data.tempoMedio;
   },
 
   /**
-   * Busca resgates com validação
+   * Busca distribuição de lojas por categoria
    */
-  async getResgatesComValidacao(limit: number = 10): Promise<ResgateLoja[]> {
-    const response = await api.get(`/dashboard-loja/resgates/com-validacao?limit=${limit}`);
+  async getStoreDistribution(): Promise<StoreDistribution[]> {
+    const response = await api.get('/admin/store-distribution');
     return response.data.data;
   },
 
   /**
-   * Busca todos os dados do dashboard loja em uma chamada
+   * Busca ranking de lojas por resgates
    */
-  async getDashboardData(): Promise<LojaDashboardData> {
-    const response = await api.get('/dashboard-loja/dados-completos');
+  async getStoreRanking(limit: number = 5): Promise<StoreRanking[]> {
+    const response = await api.get(`/admin/store-ranking?limit=${limit}`);
+    return response.data.data;
+  },
+
+  /**
+   * Busca métricas de crescimento
+   */
+  async getGrowthMetrics(): Promise<GrowthMetrics> {
+    const response = await api.get('/admin/growth-metrics');
+    return response.data.data;
+  },
+
+  /**
+   * Busca todos os dados do dashboard admin em uma chamada
+   */
+  async getDashboardData(): Promise<AdminDashboardData> {
+    const response = await api.get('/admin/dados-completos');
     return response.data.data;
   }
 };
 
 // ============================================================================
-// EXPORTS (APENAS LOJISTA)
+// EXPORTS
 // ============================================================================
 
-export default lojaDashboardService;
+export default adminDashboardService;

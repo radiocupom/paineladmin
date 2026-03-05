@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { dashboardService, Transaction } from '@/services/dashboardService';
+import { dashboardService, Transaction } from '@/services/adminDashboardService';
 import { Clock } from 'lucide-react';
 
 export function RecentTransactions() {

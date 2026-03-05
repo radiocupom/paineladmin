@@ -28,7 +28,10 @@ import {
   TrendingDown,
   ShoppingBag,
   Percent,
-  CreditCard
+  CreditCard,
+  Power,
+  X,
+  Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 import cupomService, { EstatisticasCupom } from '@/services/cupom';
@@ -53,9 +56,11 @@ export default function EstatisticasCupomPage() {
   const params = useParams();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [ativando, setAtivando] = useState(false);
   const [estatisticas, setEstatisticas] = useState<EstatisticasCupom | null>(null);
   const [dadosGrafico, setDadosGrafico] = useState<any[]>([]);
   const [dadosUso, setDadosUso] = useState<any[]>([]);
+  const [cupomAtivo, setCupomAtivo] = useState<boolean>(true);
 
   const id = params.id as string;
 
@@ -66,8 +71,9 @@ export default function EstatisticasCupomPage() {
   const carregarEstatisticas = async () => {
     try {
       setLoading(true);
-      const data = await cupomService.getEstatisticas(id);
+      const data = await cupomService.getStats(id);
       setEstatisticas(data);
+      setCupomAtivo(true); // Assumindo que está ativo
 
       // Preparar dados para o gráfico de uso
       const usoData = [
@@ -96,6 +102,33 @@ export default function EstatisticasCupomPage() {
     }
   };
 
+  // 🔥 FUNÇÕES PARA ATIVAR/DESATIVAR
+  const handleAtivar = async () => {
+    try {
+      setAtivando(true);
+      await cupomService.activate(id);
+      setCupomAtivo(true);
+      toast.success('Cupom ativado com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao ativar cupom');
+    } finally {
+      setAtivando(false);
+    }
+  };
+
+  const handleDesativar = async () => {
+    try {
+      setAtivando(true);
+      await cupomService.deactivate(id);
+      setCupomAtivo(false);
+      toast.success('Cupom desativado com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao desativar cupom');
+    } finally {
+      setAtivando(false);
+    }
+  };
+
   const calcularTaxaUso = () => {
     if (!estatisticas) return 0;
     const { totalQrCodes, qrCodesUsados } = estatisticas.estatisticas;
@@ -109,7 +142,7 @@ export default function EstatisticasCupomPage() {
     return (totalResgates / clientesAtendidos).toFixed(1);
   };
 
-  // 🔥 NOVAS FUNÇÕES FINANCEIRAS
+  // 🔥 FUNÇÕES FINANCEIRAS
   const formatarMoeda = (valor: number = 0) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -283,7 +316,7 @@ export default function EstatisticasCupomPage() {
   return (
     <ProtectedRoute allowedRoles={['loja']}>
       <div className="space-y-4 sm:space-y-6 p-2 sm:p-0">
-        {/* Cabeçalho */}
+        {/* Cabeçalho com botões de ativar/desativar */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button
@@ -295,9 +328,19 @@ export default function EstatisticasCupomPage() {
               <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
             <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 truncate">
-                Estatísticas do Cupom
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 truncate">
+                  Estatísticas do Cupom
+                </h1>
+                <Badge className={cn(
+                  "ml-2 text-xs",
+                  cupomAtivo 
+                    ? "bg-green-100 text-green-700" 
+                    : "bg-red-100 text-red-700"
+                )}>
+                  {cupomAtivo ? 'Ativo' : 'Inativo'}
+                </Badge>
+              </div>
               <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">
                 {estatisticas.cupom.codigo} - {estatisticas.cupom.descricao}
               </p>
@@ -305,6 +348,39 @@ export default function EstatisticasCupomPage() {
           </div>
           
           <div className="flex gap-2">
+            {/* 🔥 BOTÕES DE ATIVAR/DESATIVAR */}
+            {cupomAtivo ? (
+              <Button
+                onClick={handleDesativar}
+                variant="outline"
+                className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                disabled={ativando}
+              >
+                {ativando ? (
+                  <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                ) : (
+                  <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                )}
+                <span className="hidden xs:inline">Desativar</span>
+                <span className="xs:hidden">Des.</span>
+              </Button>
+            ) : (
+              <Button
+                onClick={handleAtivar}
+                variant="outline"
+                className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 border-green-200 text-green-600 hover:bg-green-50 hover:text-green-700"
+                disabled={ativando}
+              >
+                {ativando ? (
+                  <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                ) : (
+                  <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                )}
+                <span className="hidden xs:inline">Ativar</span>
+                <span className="xs:hidden">At.</span>
+              </Button>
+            )}
+
             <Button
               variant="outline"
               onClick={exportarDados}
@@ -328,17 +404,26 @@ export default function EstatisticasCupomPage() {
 
         {/* 🔥 CARDS FINANCEIROS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="border-l-4 border-l-orange-600">
+          <Card className={cn(
+            "border-l-4",
+            cupomAtivo ? "border-l-orange-600" : "border-l-gray-400 opacity-75"
+          )}>
             <CardHeader className="p-3 sm:p-4 pb-0">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">
                   Valor Total Bruto
                 </CardTitle>
-                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
+                <DollarSign className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  cupomAtivo ? "text-orange-600" : "text-gray-400"
+                )} />
               </div>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 pt-1 sm:pt-2">
-              <div className="text-base sm:text-lg lg:text-2xl font-bold text-orange-600">
+              <div className={cn(
+                "text-base sm:text-lg lg:text-2xl font-bold",
+                cupomAtivo ? "text-orange-600" : "text-gray-400"
+              )}>
                 {formatarMoeda(estatisticas.estatisticas.valorTotalResgatado)}
               </div>
               <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
@@ -347,17 +432,26 @@ export default function EstatisticasCupomPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-600">
+          <Card className={cn(
+            "border-l-4",
+            cupomAtivo ? "border-l-green-600" : "border-l-gray-400 opacity-75"
+          )}>
             <CardHeader className="p-3 sm:p-4 pb-0">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">
                   Valor Realizado (Vendas)
                 </CardTitle>
-                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                <TrendingUp className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  cupomAtivo ? "text-green-600" : "text-gray-400"
+                )} />
               </div>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 pt-1 sm:pt-2">
-              <div className="text-base sm:text-lg lg:text-2xl font-bold text-green-600">
+              <div className={cn(
+                "text-base sm:text-lg lg:text-2xl font-bold",
+                cupomAtivo ? "text-green-600" : "text-gray-400"
+              )}>
                 {formatarMoeda(estatisticas.estatisticas.valorTotalVendido)}
               </div>
               <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
@@ -366,36 +460,54 @@ export default function EstatisticasCupomPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-blue-600">
+          <Card className={cn(
+            "border-l-4",
+            cupomAtivo ? "border-l-blue-600" : "border-l-gray-400 opacity-75"
+          )}>
             <CardHeader className="p-3 sm:p-4 pb-0">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">
                   Economia dos Clientes
                 </CardTitle>
-                <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                <TrendingDown className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  cupomAtivo ? "text-blue-600" : "text-gray-400"
+                )} />
               </div>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 pt-1 sm:pt-2">
-              <div className="text-base sm:text-lg lg:text-2xl font-bold text-blue-600">
+              <div className={cn(
+                "text-base sm:text-lg lg:text-2xl font-bold",
+                cupomAtivo ? "text-blue-600" : "text-gray-400"
+              )}>
                 {formatarMoeda(estatisticas.estatisticas.valorTotalEconomizado)}
               </div>
               <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
-                {calcularConversaoFinanceira().toFixed(1)}% do valor bruto
+                {estatisticas.estatisticas.taxaConversao.toFixed(1)}% do valor bruto
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-600">
+          <Card className={cn(
+            "border-l-4",
+            cupomAtivo ? "border-l-purple-600" : "border-l-gray-400 opacity-75"
+          )}>
             <CardHeader className="p-3 sm:p-4 pb-0">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">
                   Ticket Médio
                 </CardTitle>
-                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+                <CreditCard className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  cupomAtivo ? "text-purple-600" : "text-gray-400"
+                )} />
               </div>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 pt-1 sm:pt-2">
-              <div className="text-base sm:text-lg lg:text-2xl font-bold text-purple-600">
+              <div className={cn(
+                "text-base sm:text-lg lg:text-2xl font-bold",
+                cupomAtivo ? "text-purple-600" : "text-gray-400"
+              )}>
                 {formatarMoeda(estatisticas.estatisticas.mediaTicket)}
               </div>
               <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
@@ -405,17 +517,23 @@ export default function EstatisticasCupomPage() {
           </Card>
         </div>
 
-        {/* Cards de métricas principais (existentes) */}
+        {/* Cards de métricas principais */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card>
             <CardHeader className="p-3 sm:p-4 pb-0">
               <CardTitle className="text-xs sm:text-sm font-medium text-gray-500 flex items-center gap-1 sm:gap-2">
-                <QrCode className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600" />
+                <QrCode className={cn(
+                  "h-3 w-3 sm:h-4 sm:w-4",
+                  cupomAtivo ? "text-orange-600" : "text-gray-400"
+                )} />
                 <span className="truncate">QR Codes</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 pt-1 sm:pt-2">
-              <div className="text-base sm:text-lg md:text-2xl font-bold">
+              <div className={cn(
+                "text-base sm:text-lg md:text-2xl font-bold",
+                cupomAtivo ? "" : "text-gray-400"
+              )}>
                 {estatisticas.estatisticas.totalQrCodes}
               </div>
               <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
@@ -427,17 +545,26 @@ export default function EstatisticasCupomPage() {
           <Card>
             <CardHeader className="p-3 sm:p-4 pb-0">
               <CardTitle className="text-xs sm:text-sm font-medium text-gray-500 flex items-center gap-1 sm:gap-2">
-                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                <TrendingUp className={cn(
+                  "h-3 w-3 sm:h-4 sm:w-4",
+                  cupomAtivo ? "text-green-600" : "text-gray-400"
+                )} />
                 <span className="truncate">Taxa de Uso</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 pt-1 sm:pt-2">
-              <div className="text-base sm:text-lg md:text-2xl font-bold text-green-600">
+              <div className={cn(
+                "text-base sm:text-lg md:text-2xl font-bold",
+                cupomAtivo ? "text-green-600" : "text-gray-400"
+              )}>
                 {calcularTaxaUso()}%
               </div>
               <div className="w-full h-1 sm:h-1.5 bg-gray-200 rounded-full mt-2">
                 <div 
-                  className="h-1 sm:h-1.5 bg-green-500 rounded-full"
+                  className={cn(
+                    "h-1 sm:h-1.5 rounded-full",
+                    cupomAtivo ? "bg-green-500" : "bg-gray-400"
+                  )}
                   style={{ width: `${calcularTaxaUso()}%` }}
                 />
               </div>
@@ -447,12 +574,18 @@ export default function EstatisticasCupomPage() {
           <Card>
             <CardHeader className="p-3 sm:p-4 pb-0">
               <CardTitle className="text-xs sm:text-sm font-medium text-gray-500 flex items-center gap-1 sm:gap-2">
-                <Users className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                <Users className={cn(
+                  "h-3 w-3 sm:h-4 sm:w-4",
+                  cupomAtivo ? "text-blue-600" : "text-gray-400"
+                )} />
                 <span className="truncate">Clientes</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 pt-1 sm:pt-2">
-              <div className="text-base sm:text-lg md:text-2xl font-bold">
+              <div className={cn(
+                "text-base sm:text-lg md:text-2xl font-bold",
+                cupomAtivo ? "" : "text-gray-400"
+              )}>
                 {estatisticas.estatisticas.clientesAtendidos}
               </div>
               <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
@@ -464,17 +597,33 @@ export default function EstatisticasCupomPage() {
           <Card>
             <CardHeader className="p-3 sm:p-4 pb-0">
               <CardTitle className="text-xs sm:text-sm font-medium text-gray-500 flex items-center gap-1 sm:gap-2">
-                <Award className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
+                <Award className={cn(
+                  "h-3 w-3 sm:h-4 sm:w-4",
+                  cupomAtivo ? "text-purple-600" : "text-gray-400"
+                )} />
                 <span className="truncate">Resgates</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 pt-1 sm:pt-2">
-              <div className="text-base sm:text-lg md:text-2xl font-bold">
+              <div className={cn(
+                "text-base sm:text-lg md:text-2xl font-bold",
+                cupomAtivo ? "" : "text-gray-400"
+              )}>
                 {estatisticas.estatisticas.totalResgates}
               </div>
               <div className="flex gap-2 mt-1 text-[10px] sm:text-xs">
-                <span className="text-green-600">{estatisticas.estatisticas.resgatesValidados} validados</span>
-                <span className="text-yellow-600">{estatisticas.estatisticas.resgatesPendentes} pendentes</span>
+                <span className={cn(
+                  "font-medium",
+                  cupomAtivo ? "text-green-600" : "text-gray-400"
+                )}>
+                  {estatisticas.estatisticas.resgatesValidados} validados
+                </span>
+                <span className={cn(
+                  "font-medium",
+                  cupomAtivo ? "text-yellow-600" : "text-gray-400"
+                )}>
+                  {estatisticas.estatisticas.resgatesPendentes} pendentes
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -485,7 +634,10 @@ export default function EstatisticasCupomPage() {
           <Card>
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
+                <ShoppingBag className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  cupomAtivo ? "text-orange-500" : "text-gray-400"
+                )} />
                 Informações do Produto
               </CardTitle>
             </CardHeader>
@@ -500,7 +652,10 @@ export default function EstatisticasCupomPage() {
                 {estatisticas.cupom.precoOriginal && (
                   <div>
                     <p className="text-[10px] sm:text-xs text-gray-500">Preço Original</p>
-                    <p className="text-xs sm:text-sm font-medium text-gray-400 line-through">
+                    <p className={cn(
+                      "text-xs sm:text-sm font-medium line-through",
+                      cupomAtivo ? "text-gray-400" : "text-gray-300"
+                    )}>
                       {formatarMoeda(estatisticas.cupom.precoOriginal)}
                     </p>
                   </div>
@@ -508,7 +663,10 @@ export default function EstatisticasCupomPage() {
                 {estatisticas.cupom.precoComDesconto && (
                   <div>
                     <p className="text-[10px] sm:text-xs text-gray-500">Preço com Desconto</p>
-                    <p className="text-xs sm:text-sm font-bold text-green-600">
+                    <p className={cn(
+                      "text-xs sm:text-sm font-bold",
+                      cupomAtivo ? "text-green-600" : "text-gray-400"
+                    )}>
                       {formatarMoeda(estatisticas.cupom.precoComDesconto)}
                     </p>
                   </div>
@@ -516,7 +674,12 @@ export default function EstatisticasCupomPage() {
                 {estatisticas.cupom.percentualDesconto && (
                   <div>
                     <p className="text-[10px] sm:text-xs text-gray-500">Desconto</p>
-                    <Badge className="bg-green-100 text-green-700 text-[10px] sm:text-xs">
+                    <Badge className={cn(
+                      "text-[10px] sm:text-xs",
+                      cupomAtivo 
+                        ? "bg-green-100 text-green-700" 
+                        : "bg-gray-100 text-gray-500"
+                    )}>
                       <Percent className="h-2 w-2 mr-1" />
                       {estatisticas.cupom.percentualDesconto}% OFF
                     </Badge>
@@ -533,7 +696,10 @@ export default function EstatisticasCupomPage() {
           <Card>
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                <PieChartIcon className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
+                <PieChartIcon className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  cupomAtivo ? "text-orange-500" : "text-gray-400"
+                )} />
                 Uso de QR Codes
               </CardTitle>
               <CardDescription className="text-xs sm:text-sm">
@@ -566,7 +732,7 @@ export default function EstatisticasCupomPage() {
                           return (
                             <div className="bg-white p-2 border rounded shadow text-xs sm:text-sm">
                               <p className="font-medium">{payload[0].name}</p>
-                              <p className="text-orange-600">
+                              <p className={cupomAtivo ? "text-orange-600" : "text-gray-400"}>
                                 {payload[0].value} QR codes
                               </p>
                             </div>
@@ -585,7 +751,10 @@ export default function EstatisticasCupomPage() {
           <Card>
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                <BarChartIcon className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
+                <BarChartIcon className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  cupomAtivo ? "text-orange-500" : "text-gray-400"
+                )} />
                 Resgates por Dia
               </CardTitle>
               <CardDescription className="text-xs sm:text-sm">
@@ -607,7 +776,7 @@ export default function EstatisticasCupomPage() {
                     <Tooltip 
                       contentStyle={{ fontSize: window.innerWidth < 640 ? 12 : 14 }}
                     />
-                    <Bar dataKey="resgates" fill="#f97316" />
+                    <Bar dataKey="resgates" fill={cupomAtivo ? "#f97316" : "#9ca3af"} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -628,25 +797,37 @@ export default function EstatisticasCupomPage() {
               <div className="space-y-3 sm:space-y-4">
                 <div>
                   <p className="text-[10px] sm:text-xs text-gray-500">Valor Total Bruto</p>
-                  <p className="text-xs sm:text-sm font-medium text-orange-600">
+                  <p className={cn(
+                    "text-xs sm:text-sm font-medium",
+                    cupomAtivo ? "text-orange-600" : "text-gray-400"
+                  )}>
                     {formatarMoeda(estatisticas.estatisticas.valorTotalResgatado)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[10px] sm:text-xs text-gray-500">Valor Realizado (Vendas)</p>
-                  <p className="text-xs sm:text-sm font-medium text-green-600">
+                  <p className={cn(
+                    "text-xs sm:text-sm font-medium",
+                    cupomAtivo ? "text-green-600" : "text-gray-400"
+                  )}>
                     {formatarMoeda(estatisticas.estatisticas.valorTotalVendido)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[10px] sm:text-xs text-gray-500">Economia dos Clientes</p>
-                  <p className="text-xs sm:text-sm font-medium text-blue-600">
+                  <p className={cn(
+                    "text-xs sm:text-sm font-medium",
+                    cupomAtivo ? "text-blue-600" : "text-gray-400"
+                  )}>
                     {formatarMoeda(estatisticas.estatisticas.valorTotalEconomizado)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[10px] sm:text-xs text-gray-500">Ticket Médio</p>
-                  <p className="text-xs sm:text-sm font-medium text-purple-600">
+                  <p className={cn(
+                    "text-xs sm:text-sm font-medium",
+                    cupomAtivo ? "text-purple-600" : "text-gray-400"
+                  )}>
                     {formatarMoeda(estatisticas.estatisticas.mediaTicket)}
                   </p>
                 </div>
@@ -654,25 +835,37 @@ export default function EstatisticasCupomPage() {
               <div className="space-y-3 sm:space-y-4">
                 <div>
                   <p className="text-[10px] sm:text-xs text-gray-500">Taxa de Conversão Financeira</p>
-                  <p className="text-xs sm:text-sm font-medium text-orange-600">
+                  <p className={cn(
+                    "text-xs sm:text-sm font-medium",
+                    cupomAtivo ? "text-orange-600" : "text-gray-400"
+                  )}>
                     {calcularConversaoFinanceira().toFixed(1)}%
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-gray-500">Economia por Cliente</p>
-                  <p className="text-xs sm:text-sm font-medium text-blue-600">
+                  <p className="text-[10px] sm:text-xs text-gray-500">Economia Média por Resgate</p>
+                  <p className={cn(
+                    "text-xs sm:text-sm font-medium",
+                    cupomAtivo ? "text-blue-600" : "text-gray-400"
+                  )}>
                     {formatarMoeda(calcularEconomiaPorCliente())}
                   </p>
                 </div>
                 <div>
                   <p className="text-[10px] sm:text-xs text-gray-500">Resgates Validados</p>
-                  <p className="text-xs sm:text-sm font-medium text-green-600">
+                  <p className={cn(
+                    "text-xs sm:text-sm font-medium",
+                    cupomAtivo ? "text-green-600" : "text-gray-400"
+                  )}>
                     {estatisticas.estatisticas.resgatesValidados}
                   </p>
                 </div>
                 <div>
                   <p className="text-[10px] sm:text-xs text-gray-500">Resgates Pendentes</p>
-                  <p className="text-xs sm:text-sm font-medium text-yellow-600">
+                  <p className={cn(
+                    "text-xs sm:text-sm font-medium",
+                    cupomAtivo ? "text-yellow-600" : "text-gray-400"
+                  )}>
                     {estatisticas.estatisticas.resgatesPendentes}
                   </p>
                 </div>

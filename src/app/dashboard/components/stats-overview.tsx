@@ -13,7 +13,7 @@ import {
   ShoppingBag,
   CreditCard
 } from 'lucide-react';
-import { dashboardService, KPIsResponse } from '@/services/dashboardService';
+import { dashboardService, KPIsResponse } from '@/services/adminDashboardService';
 
 export function StatsOverview() {
   const [kpis, setKpis] = useState<KPIsResponse | null>(null);

@@ -159,7 +159,7 @@ export default function NovoCupomLojaPage() {
         percentualDesconto: percentualDesconto ? parseInt(percentualDesconto) : undefined,
       };
 
-      await cupomService.criar(dadosParaEnviar);
+      await cupomService.create(dadosParaEnviar);
       toast.success('Cupom criado com sucesso!');
       router.push('/dashboard-loja/cupons');
       

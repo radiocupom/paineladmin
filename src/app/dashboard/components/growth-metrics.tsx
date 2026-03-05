@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Store, Ticket } from 'lucide-react';
-import { dashboardService, GrowthMetricsResponse } from '@/services/dashboardService';
+import { adminDashboardService } from '@/services/adminDashboardService';
 
 const colorVariants = {
   blue: { bg: 'bg-blue-100', text: 'text-blue-600' },
@@ -18,7 +18,7 @@ export function GrowthMetrics() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await dashboardService.getGrowthMetrics();
+        const response = await adminDashboardService.getGrowthMetrics();
         setData(response);
       } catch (error) {
         // Erro silencioso - apenas log em desenvolvimento

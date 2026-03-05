@@ -10,7 +10,7 @@ import {
 import {
   dashboardService,
   type StoreDistribution
-} from '@/services/dashboardService';
+} from '@/services/adminDashboardService';
 import { PieChart } from 'lucide-react';
 
 // 🔥 Interface do componente

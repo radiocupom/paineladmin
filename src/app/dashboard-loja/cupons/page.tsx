@@ -45,7 +45,8 @@ import {
   Loader2,
   DollarSign,
   ShoppingBag,
-  Percent
+  Percent,
+  Power
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import cupomService, { Cupom } from '@/services/cupom';
@@ -68,7 +69,7 @@ export default function MeusCuponsPage() {
   const carregarCupons = async () => {
     try {
       setLoading(true);
-      const data = await cupomService.listarMeusCupons();
+      const data = await cupomService.getMyStore();
       setCupons(data);
     } catch (error) {
       toast.error('Erro ao carregar cupons');
@@ -81,7 +82,7 @@ export default function MeusCuponsPage() {
     if (!confirm('Tem certeza que deseja excluir este cupom?')) return;
     
     try {
-      await cupomService.deletar(id);
+      await cupomService.delete(id);
       toast.success('Cupom excluído com sucesso!');
       carregarCupons();
     } catch (error) {
@@ -108,7 +109,7 @@ export default function MeusCuponsPage() {
 
     try {
       setGerandoQr(id);
-      await cupomService.gerarQrCodes(id, quantidade);
+      await cupomService.generateQrCodes(id, quantidade);
       toast.success(`${quantidade} QR codes gerados com sucesso!`);
       carregarCupons();
     } catch (error) {
@@ -181,15 +182,33 @@ export default function MeusCuponsPage() {
     );
   };
 
+  // 🔥 FUNÇÃO DE STATUS ATUALIZADA - CONSIDERA ativo E dataExpiracao
   const getStatusBadge = (cupom: Cupom) => {
     const expirado = new Date(cupom.dataExpiracao) < new Date();
+    
+    // Se já expirou, mostra expirado (independente do ativo)
     if (expirado) {
       return <Badge className="bg-red-100 text-red-700 text-[10px] sm:text-xs">Expirado</Badge>;
     }
+    
+    // Se não está ativo, mostra inativo
+    if (!cupom.ativo) {
+      return <Badge className="bg-gray-100 text-gray-700 text-[10px] sm:text-xs flex items-center gap-1">
+        <Power className="h-2 w-2" />
+        Inativo
+      </Badge>;
+    }
+    
+    // Se está ativo mas acabando os QR codes
     if ((cupom.qrCodesUsados / cupom.totalQrCodes) > 0.9) {
       return <Badge className="bg-yellow-100 text-yellow-700 text-[10px] sm:text-xs">Acabando</Badge>;
     }
-    return <Badge className="bg-green-100 text-green-700 text-[10px] sm:text-xs">Ativo</Badge>;
+    
+    // Ativo e normal
+    return <Badge className="bg-green-100 text-green-700 text-[10px] sm:text-xs flex items-center gap-1">
+      <Power className="h-2 w-2" />
+      Ativo
+    </Badge>;
   };
 
   const getProgresso = (cupom: Cupom) => {
@@ -391,51 +410,52 @@ export default function MeusCuponsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-7 w-7 sm:h-8 sm:w-8 p-0">
-                                <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40 sm:w-48">
-                              <DropdownMenuLabel className="text-xs sm:text-sm">Ações</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => router.push(`/dashboard-loja/cupons/${cupom.id}`)}
-                                className="text-xs sm:text-sm cursor-pointer"
-                              >
-                                <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => router.push(`/dashboard-loja/cupons/${cupom.id}/estatisticas`)}
-                                className="text-xs sm:text-sm cursor-pointer"
-                              >
-                                <BarChart className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                                Estatísticas
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleGerarQrCodes(cupom.id)}
-                                disabled={gerandoQr === cupom.id}
-                                className="text-xs sm:text-sm cursor-pointer"
-                              >
-                                {gerandoQr === cupom.id ? (
-                                  <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                                ) : (
-                                  <QrCode className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                                )}
-                                Gerar QR
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600 text-xs sm:text-sm cursor-pointer"
-                                onClick={() => handleDelete(cupom.id)}
-                              >
-                                <Trash className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                                Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        <DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="ghost" className="h-7 w-7 sm:h-8 sm:w-8 p-0">
+      <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end" className="w-40 sm:w-48">
+    <DropdownMenuLabel className="text-xs sm:text-sm">Ações</DropdownMenuLabel>
+    <DropdownMenuSeparator />
+    
+    <DropdownMenuItem
+      onClick={() => router.push(`/dashboard-loja/cupons/${cupom.id}`)}
+      className="text-xs sm:text-sm cursor-pointer"
+    >
+      <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+      Editar
+    </DropdownMenuItem>
+    
+    <DropdownMenuItem
+      onClick={() => router.push(`/dashboard-loja/cupons/${cupom.id}/estatisticas`)}
+      className="text-xs sm:text-sm cursor-pointer"
+    >
+      <BarChart className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+      Estatísticas
+    </DropdownMenuItem>
+    
+    {/* 🔥 REDIRECIONA PARA A PÁGINA DE GERENCIAR QR CODES */}
+    <DropdownMenuItem
+    onClick={() => router.push(`/dashboard-loja/cupons/${cupom.id}/gerenciar`)}
+      className="text-xs sm:text-sm cursor-pointer"
+    >
+      <QrCode className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+      Gerenciar QR
+    </DropdownMenuItem>
+    
+    <DropdownMenuSeparator />
+    
+    <DropdownMenuItem
+      className="text-red-600 text-xs sm:text-sm cursor-pointer"
+      onClick={() => handleDelete(cupom.id)}
+    >
+      <Trash className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+      Excluir
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );
@@ -604,7 +624,7 @@ export default function MeusCuponsPage() {
                             "text-[10px] sm:text-xs",
                             expirado ? 'text-red-600' : 'text-gray-600'
                           )}>
-                            {new Date(cupom.dataExpiracao).toLocaleDateString()}
+                            {cupom.dataExpiracao ? new Date(cupom.dataExpiracao).toLocaleDateString() : '-'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -616,7 +636,7 @@ export default function MeusCuponsPage() {
                       </div>
 
                       {/* Alerta de baixa quantidade */}
-                      {progresso.disponiveis < 10 && !expirado && (
+                      {progresso.disponiveis < 10 && !expirado && cupom.ativo && (
                         <div className="flex items-center gap-1 p-2 bg-yellow-50 rounded-lg mt-2">
                           <AlertCircle className="h-3 w-3 text-yellow-600" />
                           <span className="text-[10px] text-yellow-700">
@@ -636,7 +656,7 @@ export default function MeusCuponsPage() {
         <div className="flex justify-between items-center text-xs sm:text-sm text-gray-500">
           <span>Total: {cupons.length} cupons</span>
           <span>
-            {cupons.filter(c => new Date(c.dataExpiracao) >= new Date() && (c.qrCodesUsados / c.totalQrCodes) <= 0.9).length} ativos
+            {cupons.filter(c => c.ativo && new Date(c.dataExpiracao) >= new Date() && (c.qrCodesUsados / c.totalQrCodes) <= 0.9).length} ativos
           </span>
         </div>
       </div>

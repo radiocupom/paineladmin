@@ -95,7 +95,6 @@ interface ClienteLoja {
 }
 
 export default function ClientesLojaPage() {
-  console.log('🔥🔥🔥 PÁGINA DE CLIENTES FOI CARREGADA! 🔥🔥🔥');
   const router = useRouter();
   const { user } = useAuth() as { user: Usuario | null };
   const [loading, setLoading] = useState(true);
@@ -104,123 +103,81 @@ export default function ClientesLojaPage() {
   const [ordenarPor, setOrdenarPor] = useState('resgates');
   const [filtroPeriodo, setFiltroPeriodo] = useState('todos');
 
- useEffect(() => {
-  console.log('🔄 useEffect da página de clientes disparado');
-  
-  // Se o user ainda não carregou, espera
-  if (!user) {
-    console.log('⏳ Aguardando user carregar...');
-    return;
-  }
-  
-  carregarDados();
-}, [user]);
+  useEffect(() => {
+    carregarDados();
+  }, []);
 
-const carregarDados = async () => {
-  console.log('🚀🚀🚀 INÍCIO DO CARREGAR DADOS 🚀🚀🚀');
-  
-  try {
-    setLoading(true);
-    
-    console.log('🔍 user no momento da execução:', user);
-    console.log('🔍 user?.loja:', user?.loja);
-    console.log('🔍 user?.lojaId:', user?.lojaId);
-    
-    const lojaId = user?.loja?.id || user?.lojaId;
-    console.log('📍 lojaId usado:', lojaId);
-    
-    if (!lojaId) {
-      console.error('❌ lojaId é falsy!');
-      toast.error('ID da loja não encontrado');
-      setLoading(false);
-      return;
-    }
-
-    console.log('📤 Buscando clientes da loja...');
-    const clientesData = await clienteService.listarClientesLoja(lojaId);
-    
-    console.log('📦 RAW DATA (completo):', clientesData);
-    console.log('📦 RAW DATA (primeiro cliente):', clientesData?.[0]);
-    console.log('📦 TOTAL DE CLIENTES:', clientesData?.length);
-    
-    if (!clientesData || clientesData.length === 0) {
-      console.log('⚠️ Nenhum cliente retornado!');
-      setClientes([]);
-      setLoading(false);
-      return;
-    }
-
-    // Adaptar os dados para o formato ClienteLoja
-    const clientesAdaptados: ClienteLoja[] = clientesData.map(cliente => {
-      console.log('🔄 Adaptando cliente:', cliente.nome);
+  const carregarDados = async () => {
+    try {
+      setLoading(true);
       
-      const resgates = cliente.resgates || [];
-      console.log(`   ${cliente.nome} tem ${resgates.length} resgates`);
+      // Pega o lojaId do usuário logado (ou usa o fixo para teste)
+      const lojaId = user?.loja?.id || user?.lojaId || '1dd962b5-615a-414e-8b55-ff6273cd6086';
       
-      // Calcular primeiro e último resgate
-      let primeiroResgate = null;
-      let ultimoResgate = null;
-      
-      if (resgates.length > 0) {
-        const datas = resgates.map(r => new Date(r.resgatadoEm).getTime());
-        primeiroResgate = new Date(Math.min(...datas)).toISOString();
-        ultimoResgate = new Date(Math.max(...datas)).toISOString();
-        console.log(`   📅 Primeiro resgate: ${primeiroResgate}`);
-        console.log(`   📅 Último resgate: ${ultimoResgate}`);
+      if (!lojaId) {
+        toast.error('ID da loja não encontrado');
+        return;
       }
 
-      const totalCupons = new Set(resgates.map(r => r.cupom.id)).size;
-      console.log(`   🏷️ Total de cupons diferentes: ${totalCupons}`);
+      console.log('📤 Buscando clientes da loja:', lojaId);
+      const clientesData = await clienteService.listarClientesLoja(lojaId);
+      console.log('📦 Dados recebidos:', clientesData);
 
-      const cuponsResgatados = resgates.map(r => ({
-        id: r.id,
-        cupomId: r.cupom.id,
-        cupomCodigo: r.cupom.codigo,
-        cupomDescricao: r.cupom.descricao,
-        quantidade: r.quantidade,
-        data: r.resgatadoEm,
-        cupom: {
-          codigo: r.cupom.codigo,
-          descricao: r.cupom.descricao,
+      // 🔥 ADAPTA OS DADOS para o formato ClienteLoja
+      const clientesAdaptados: ClienteLoja[] = clientesData.map((cliente: ClienteWithResgates) => {
+        const resgates = cliente.resgates || [];
+        
+        // Calcula primeiro e último resgate
+        let primeiroResgate = null;
+        let ultimoResgate = null;
+        
+        if (resgates.length > 0) {
+          const datas = resgates.map(r => new Date(r.resgatadoEm).getTime());
+          primeiroResgate = new Date(Math.min(...datas)).toISOString();
+          ultimoResgate = new Date(Math.max(...datas)).toISOString();
         }
-      }));
 
-      return {
-        id: cliente.id,
-        nome: cliente.nome,
-        email: cliente.email,
-        whatsapp: cliente.whatsapp,
-        cidade: cliente.cidade,
-        estado: cliente.estado,
-        genero: cliente.genero,
-        dataNascimento: cliente.dataNascimento,
-        primeiroResgate,
-        ultimoResgate,
-        totalResgates: resgates.length,
-        totalCupons,
-        cuponsResgatados
-      };
-    });
+        // Mapeia os resgates
+        const cuponsResgatados = resgates.map(r => ({
+          id: r.id,
+          cupomId: r.cupom.id,
+          cupomCodigo: r.cupom.codigo,
+          cupomDescricao: r.cupom.descricao,
+          quantidade: r.quantidade,
+          data: r.resgatadoEm,
+          cupom: {
+            codigo: r.cupom.codigo,
+            descricao: r.cupom.descricao,
+          }
+        }));
 
-    console.log('✅ ADAPTADOS (primeiro cliente):', clientesAdaptados[0]);
-    console.log('✅ QUANTIDADE ADAPTADA:', clientesAdaptados.length);
-    console.log('✅ TODOS ADAPTADOS:', clientesAdaptados);
-    
-    setClientes(clientesAdaptados);
-    console.log('✅ setClientes executado!');
+        return {
+          id: cliente.id,
+          nome: cliente.nome,
+          email: cliente.email,
+          whatsapp: cliente.whatsapp,
+          cidade: cliente.cidade,
+          estado: cliente.estado,
+          genero: cliente.genero,
+          dataNascimento: cliente.dataNascimento,
+          primeiroResgate,
+          ultimoResgate,
+          totalResgates: resgates.length,
+          totalCupons: new Set(resgates.map(r => r.cupom.id)).size,
+          cuponsResgatados
+        };
+      });
 
-  } catch (error: any) {
-  console.error('❌ Erro no carregarDados:', error);
-  console.error('❌ Mensagem:', error?.message);
-  console.error('❌ Stack:', error?.stack);
-  console.error('❌ Resposta do erro:', error?.response?.data);
-  toast.error(error?.response?.data?.error || 'Erro ao carregar clientes');
+      console.log('✅ Clientes adaptados:', clientesAdaptados);
+      setClientes(clientesAdaptados);
 
-  } finally {
-    setLoading(false);
-    console.log('✅ loading = false');
-  }
-};
+    } catch (error) {
+      console.error('❌ Erro ao carregar clientes:', error);
+      toast.error('Erro ao carregar clientes');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getDadosGraficoTopClientes = () => {
     if (clientes.length === 0) return [];

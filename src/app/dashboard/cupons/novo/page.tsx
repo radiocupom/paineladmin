@@ -140,73 +140,80 @@ export default function NovoCupomPage() {
   };
 
   const onSubmit = async (data: NovoCupomForm) => {
-    try {
-      setLoading(true);
-      
-      // Validar data de expiração
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
-      
-      const dataExpiracao = new Date(data.dataExpiracao);
-      dataExpiracao.setHours(0, 0, 0, 0);
-      
-      if (dataExpiracao <= hoje) {
-        toast.error('A data de expiração deve ser futura');
-        setLoading(false);
-        return;
-      }
-
-      // 🔥 VALIDAR CAMPOS DE PREÇO
-      if (data.precoOriginal && parseFloat(data.precoOriginal) <= 0) {
-        toast.error('Preço original deve ser maior que zero');
-        setLoading(false);
-        return;
-      }
-
-      if (data.precoComDesconto && parseFloat(data.precoComDesconto) <= 0) {
-        toast.error('Preço com desconto deve ser maior que zero');
-        setLoading(false);
-        return;
-      }
-
-      if (data.percentualDesconto) {
-        const percentual = parseInt(data.percentualDesconto);
-        if (percentual < 0 || percentual > 100) {
-          toast.error('Percentual de desconto deve estar entre 0 e 100');
-          setLoading(false);
-          return;
-        }
-      }
-
-      const dadosParaEnviar = {
-        codigo: data.codigo,
-        descricao: data.descricao,
-        quantidadePorCliente: parseInt(data.quantidadePorCliente),
-        dataExpiracao: data.dataExpiracao,
-        lojaId: data.lojaId,
-        quantidadeQrCodes: data.quantidadeQrCodes ? parseInt(data.quantidadeQrCodes) : 1000,
-        logo: logoFile || undefined,
-        
-        // 🔥 NOVOS CAMPOS DE PREÇO
-        nomeProduto: data.nomeProduto || undefined,
-        precoOriginal: data.precoOriginal ? parseFloat(data.precoOriginal) : undefined,
-        precoComDesconto: data.precoComDesconto ? parseFloat(data.precoComDesconto) : undefined,
-        percentualDesconto: data.percentualDesconto ? parseInt(data.percentualDesconto) : undefined,
-      };
-      
-      console.log('📤 Enviando cupom:', dadosParaEnviar);
-      
-      await cupomService.criar(dadosParaEnviar);
-      toast.success('Cupom criado com sucesso!');
-      router.push('/dashboard/cupons');
-      
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erro ao criar cupom');
-    } finally {
+  console.log('🚀 onSubmit disparado!');
+  console.log('📦 Dados do formulário:', data);
+  console.log('🖼️ Logo file:', logoFile);
+  console.log('👤 Usuário:', user);
+  
+  try {
+    setLoading(true);
+    
+    // Validar data de expiração
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    const dataExpiracao = new Date(data.dataExpiracao);
+    dataExpiracao.setHours(0, 0, 0, 0);
+    
+    if (dataExpiracao <= hoje) {
+      toast.error('A data de expiração deve ser futura');
       setLoading(false);
+      return;
     }
-  };
 
+    // 🔥 VALIDAR CAMPOS DE PREÇO
+    if (data.precoOriginal && parseFloat(data.precoOriginal) <= 0) {
+      toast.error('Preço original deve ser maior que zero');
+      setLoading(false);
+      return;
+    }
+
+    if (data.precoComDesconto && parseFloat(data.precoComDesconto) <= 0) {
+      toast.error('Preço com desconto deve ser maior que zero');
+      setLoading(false);
+      return;
+    }
+
+    if (data.percentualDesconto) {
+      const percentual = parseInt(data.percentualDesconto);
+      if (percentual < 0 || percentual > 100) {
+        toast.error('Percentual de desconto deve estar entre 0 e 100');
+        setLoading(false);
+        return;
+      }
+    }
+
+    const dadosParaEnviar = {
+      codigo: data.codigo,
+      descricao: data.descricao,
+      quantidadePorCliente: parseInt(data.quantidadePorCliente),
+      dataExpiracao: data.dataExpiracao,
+      lojaId: data.lojaId,
+      quantidadeQrCodes: data.quantidadeQrCodes ? parseInt(data.quantidadeQrCodes) : 1000,
+      logo: logoFile || undefined,
+      
+      // 🔥 NOVOS CAMPOS DE PREÇO
+      nomeProduto: data.nomeProduto || undefined,
+      precoOriginal: data.precoOriginal ? parseFloat(data.precoOriginal) : undefined,
+      precoComDesconto: data.precoComDesconto ? parseFloat(data.precoComDesconto) : undefined,
+      percentualDesconto: data.percentualDesconto ? parseInt(data.percentualDesconto) : undefined,
+    };
+    
+    console.log('📤 Enviando cupom:', dadosParaEnviar);
+    
+    // 🔥 CORREÇÃO AQUI - create em vez de criar
+    await cupomService.create(dadosParaEnviar);
+    
+    toast.success('Cupom criado com sucesso!');
+    router.push('/dashboard/cupons');
+    
+  } catch (error: any) {
+    console.error('❌ Erro detalhado:', error);
+    toast.error(error.response?.data?.error || error.message || 'Erro ao criar cupom');
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
       <div className="space-y-4 sm:space-y-6 p-2 sm:p-0">

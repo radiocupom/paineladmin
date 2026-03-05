@@ -22,7 +22,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import authService from '@/services/auth';
-import { dashboardLojaService } from '@/services/dashboardLoja';
+import { lojaDashboardService } from '@/services/dashboardLoja';
 
 const menuItems = [
   {
@@ -46,16 +46,6 @@ const menuItems = [
     icon: Gift,
   },
   {
-    title: 'QR Codes',
-    href: '/dashboard-loja/qrcodes',
-    icon: QrCode,
-  },
-  {
-    title: 'Resgates',
-    href: '/dashboard-loja/resgates',
-    icon: History,
-  },
-  {
     title: 'Clientes',
     href: '/dashboard-loja/clientes',
     icon: Users,
@@ -67,6 +57,8 @@ export function SidebarLoja() {
   const user = authService.getCurrentUser();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  
+  // KPIs - APENAS OS 4 QUE APARECEM NA IMAGEM
   const [cuponsAtivos, setCuponsAtivos] = useState(0);
   const [resgatesMes, setResgatesMes] = useState(0);
   const [qrCodes, setQrCodes] = useState(0);
@@ -77,21 +69,20 @@ export function SidebarLoja() {
     const carregarResumo = async () => {
       try {
         setLoading(true);
-        const data = await dashboardLojaService.getKPIs();
+        const data = await lojaDashboardService.getKPIs();
         
         setCuponsAtivos(data.cupons.ativos);
         setResgatesMes(data.resgates.mes);
         setQrCodes(data.qrCodes.total);
         
         const media = data.cupons.total > 0 
-          ? (data.resgates.total / data.cupons.total).toFixed(1) 
+          ? Number((data.resgates.total / data.cupons.total).toFixed(1))
           : 0;
-        setMediaResgates(Number(media));
+        setMediaResgates(media);
         
       } catch (error) {
-        // Erro silencioso - apenas log em desenvolvimento
         if (process.env.NODE_ENV === 'development') {
-          console.error('Erro ao carregar dados do dashboard');
+          console.error('Erro ao carregar dados do dashboard:', error);
         }
       } finally {
         setLoading(false);
@@ -172,7 +163,7 @@ export function SidebarLoja() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
-                    {user?.nome || 'Minha Loja'}
+                    {user?.nome || 'CarlosChef'}
                   </p>
                   <p className="text-[10px] sm:text-xs text-orange-600 font-medium">
                     Plano Premium
@@ -180,14 +171,15 @@ export function SidebarLoja() {
                 </div>
               </div>
               
-              {/* Métricas rápidas */}
-              <div className="grid grid-cols-2 gap-1 sm:gap-2 mt-3 pt-3 border-t border-orange-200">
+              {/* KPIs - EXATAMENTE COMO NA IMAGEM: 2x2 */}
+              <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-orange-200">
+                {/* Primeira linha */}
                 <div>
                   <p className="text-[10px] sm:text-xs text-gray-500 truncate">Cupons Ativos</p>
                   {loading ? (
-                    <div className="h-4 sm:h-5 w-8 sm:w-10 bg-gray-200 animate-pulse rounded"></div>
+                    <div className="h-5 w-8 bg-gray-200 animate-pulse rounded"></div>
                   ) : (
-                    <p className="text-xs sm:text-sm font-bold text-gray-900">
+                    <p className="text-sm sm:text-base font-bold text-gray-900">
                       {cuponsAtivos}
                     </p>
                   )}
@@ -195,33 +187,31 @@ export function SidebarLoja() {
                 <div>
                   <p className="text-[10px] sm:text-xs text-gray-500 truncate">Resgates/Mês</p>
                   {loading ? (
-                    <div className="h-4 sm:h-5 w-8 sm:w-10 bg-gray-200 animate-pulse rounded"></div>
+                    <div className="h-5 w-8 bg-gray-200 animate-pulse rounded"></div>
                   ) : (
-                    <p className="text-xs sm:text-sm font-bold text-gray-900">
+                    <p className="text-sm sm:text-base font-bold text-gray-900">
                       {resgatesMes}
                     </p>
                   )}
                 </div>
-              </div>
 
-              {/* Métricas adicionais - escondido em telas muito pequenas */}
-              <div className="grid grid-cols-2 gap-1 sm:gap-2 mt-2 hidden sm:grid">
+                {/* Segunda linha */}
                 <div>
-                  <p className="text-[10px] sm:text-xs text-gray-500">QR Codes</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">QR Codes</p>
                   {loading ? (
-                    <div className="h-4 sm:h-5 w-8 sm:w-10 bg-gray-200 animate-pulse rounded"></div>
+                    <div className="h-5 w-8 bg-gray-200 animate-pulse rounded"></div>
                   ) : (
-                    <p className="text-xs sm:text-sm font-bold text-gray-900">
+                    <p className="text-sm sm:text-base font-bold text-gray-900">
                       {qrCodes}
                     </p>
                   )}
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-gray-500">Média/ Cupom</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">Média/ Cupom</p>
                   {loading ? (
-                    <div className="h-4 sm:h-5 w-8 sm:w-10 bg-gray-200 animate-pulse rounded"></div>
+                    <div className="h-5 w-8 bg-gray-200 animate-pulse rounded"></div>
                   ) : (
-                    <p className="text-xs sm:text-sm font-bold text-gray-900">
+                    <p className="text-sm sm:text-base font-bold text-gray-900">
                       {mediaResgates}
                     </p>
                   )}
