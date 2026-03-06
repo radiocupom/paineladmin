@@ -2,8 +2,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link'; // ← IMPORT DO LINK
+import Link from 'next/link';
 import { ProtectedRoute } from '@/app/dashboard/components/auth/protected-route';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,49 +20,45 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Search,
   User,
   Phone,
   MapPin,
-  Loader2,
   Eye,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  DollarSign,
+  TrendingUp,
+  Users,
+  Ticket,
+  QrCode,
+  Percent,
+  Wallet,
+  CheckCircle, // ← NOVO ÍCONE
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
-import clienteService, { ClienteWithResgates } from '@/services/cliente';
+import clienteService, { ClienteDaLoja, Resgate, EstatisticasPorLoja } from '@/services/cliente';
+import authService from '@/services/auth';
 
 interface Usuario {
   id: string;
+  nome: string;
+  email: string;
+  role: string;
   lojaId?: string;
   loja?: {
     id: string;
     nome: string;
+    logo?: string;
   };
-  role: string;
 }
 
 interface ClienteLoja {
@@ -71,193 +66,143 @@ interface ClienteLoja {
   nome: string;
   email: string;
   whatsapp: string;
-  cidade?: string;        // ← TORNAR OPCIONAL
-  estado?: string;         // ← TORNAR OPCIONAL
-  genero?: string;         // ← TORNAR OPCIONAL
-  dataNascimento?: string; // ← TORNAR OPCIONAL
+  cidade?: string;
+  estado?: string;
+  genero?: string;
+  dataNascimento?: string;
   primeiroResgate: string | null;
   ultimoResgate: string | null;
   totalResgates: number;
   totalCupons: number;
-  cuponsResgatados: Array<{
-    id: string;
-    cupomId: string;
-    cupomCodigo: string;
-    cupomDescricao: string;
-    quantidade: number;
-    data: string;
-    cupom: {
-      codigo: string;
-      descricao: string;
-      logo?: string;
-    };
-  }>;
+  totalQrCodes: number;
+  qrCodesValidados: number;
+  totalGasto: number;
 }
 
 export default function ClientesLojaPage() {
-  const router = useRouter();
   const { user } = useAuth() as { user: Usuario | null };
   const [loading, setLoading] = useState(true);
+  const [loadingKpis, setLoadingKpis] = useState(true);
   const [clientes, setClientes] = useState<ClienteLoja[]>([]);
+  const [estatisticas, setEstatisticas] = useState<EstatisticasPorLoja | null>(null);
   const [search, setSearch] = useState('');
-  const [ordenarPor, setOrdenarPor] = useState('resgates');
-  const [filtroPeriodo, setFiltroPeriodo] = useState('todos');
+  const [paginacao, setPaginacao] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false
+  });
 
-  useEffect(() => {
-    carregarDados();
-  }, []);
+  // 🔥 Calcular totais baseados nos clientes
+  const gastoTotal = clientes.reduce((acc, c) => acc + c.totalGasto, 0);
+  const totalQrCodes = clientes.reduce((acc, c) => acc + c.totalQrCodes, 0);
+  const totalQrCodesValidados = clientes.reduce((acc, c) => acc + c.qrCodesValidados, 0);
 
-  const carregarDados = async () => {
+  const carregarDados = async (page = 1) => {
     try {
       setLoading(true);
       
-      // Pega o lojaId do usuário logado (ou usa o fixo para teste)
-      const lojaId = user?.loja?.id || user?.lojaId || '1dd962b5-615a-414e-8b55-ff6273cd6086';
-      
+      const currentUser = authService.getCurrentUser() as Usuario | null;
+      const lojaId = currentUser?.loja?.id || currentUser?.lojaId;
+
       if (!lojaId) {
         toast.error('ID da loja não encontrado');
         return;
       }
 
-      console.log('📤 Buscando clientes da loja:', lojaId);
-      const clientesData = await clienteService.listarClientesLoja(lojaId);
-      console.log('📦 Dados recebidos:', clientesData);
+      console.log('🏪 Buscando dados da loja:', lojaId);
+      
+      // 🔥 CARREGAR ESTATÍSTICAS E CLIENTES EM PARALELO
+      const [estatsResponse, clientesResponse] = await Promise.all([
+        clienteService.getEstatisticasDaLoja(lojaId),
+        clienteService.listarClientesDaLoja(
+          lojaId, 
+          page, 
+          10,
+          { search: search || undefined },
+          'ultimoResgate',
+          'desc'
+        )
+      ]);
 
-      // 🔥 ADAPTA OS DADOS para o formato ClienteLoja
-      const clientesAdaptados: ClienteLoja[] = clientesData.map((cliente: ClienteWithResgates) => {
-        const resgates = cliente.resgates || [];
-        
-        // Calcula primeiro e último resgate
-        let primeiroResgate = null;
-        let ultimoResgate = null;
-        
-        if (resgates.length > 0) {
-          const datas = resgates.map(r => new Date(r.resgatadoEm).getTime());
-          primeiroResgate = new Date(Math.min(...datas)).toISOString();
-          ultimoResgate = new Date(Math.max(...datas)).toISOString();
-        }
+      console.log('📊 Estatísticas da loja:', estatsResponse);
+      console.log('📦 Clientes:', clientesResponse);
 
-        // Mapeia os resgates
-        const cuponsResgatados = resgates.map(r => ({
-          id: r.id,
-          cupomId: r.cupom.id,
-          cupomCodigo: r.cupom.codigo,
-          cupomDescricao: r.cupom.descricao,
-          quantidade: r.quantidade,
-          data: r.resgatadoEm,
-          cupom: {
-            codigo: r.cupom.codigo,
-            descricao: r.cupom.descricao,
-          }
-        }));
+      setEstatisticas(estatsResponse);
 
-        return {
-          id: cliente.id,
-          nome: cliente.nome,
-          email: cliente.email,
-          whatsapp: cliente.whatsapp,
-          cidade: cliente.cidade,
-          estado: cliente.estado,
-          genero: cliente.genero,
-          dataNascimento: cliente.dataNascimento,
-          primeiroResgate,
-          ultimoResgate,
-          totalResgates: resgates.length,
-          totalCupons: new Set(resgates.map(r => r.cupom.id)).size,
-          cuponsResgatados
-        };
-      });
+      // Adaptar os dados dos clientes
+      // Adaptar os dados dos clientes
+const clientesAdaptados: ClienteLoja[] = clientesResponse.clientes.map((cliente: ClienteDaLoja) => {
+  const resgates = cliente.resgates || [];
+  
+  let primeiroResgate = null;
+  let ultimoResgate = null;
+  
+  if (resgates.length > 0) {
+    const datas = resgates.map((r: Resgate) => new Date(r.resgatadoEm).getTime());
+    primeiroResgate = new Date(Math.min(...datas)).toISOString();
+    ultimoResgate = new Date(Math.max(...datas)).toISOString();
+  }
 
-      console.log('✅ Clientes adaptados:', clientesAdaptados);
+  // 🔥 CORREÇÃO: Usar _count.resgates para o total real
+  const totalResgates = cliente._count?.resgates || resgates.length; // Prioriza o _count
+  
+  // 🔥 CORREÇÃO: Calcular cupons distintos baseado nos resgates disponíveis
+  const totalCupons = new Set(resgates.map((r: Resgate) => r.cupom.id)).size;
+
+  return {
+    id: cliente.id,
+    nome: cliente.nome,
+    email: cliente.email,
+    whatsapp: cliente.whatsapp,
+    cidade: cliente.cidade,
+    estado: cliente.estado,
+    genero: cliente.genero,
+    dataNascimento: cliente.dataNascimento,
+    primeiroResgate,
+    ultimoResgate,
+    totalResgates, // ← Agora será 5
+    totalCupons,   // ← Agora será 1
+    totalQrCodes: cliente._count?.qrCodesUsados || 0,
+    qrCodesValidados: cliente.estatisticas?.qrCodesValidados || 0,
+    totalGasto: cliente.estatisticas?.totalGasto || 0
+  };
+});
       setClientes(clientesAdaptados);
+      setPaginacao(clientesResponse.pagination);
 
-    } catch (error) {
-      console.error('❌ Erro ao carregar clientes:', error);
-      toast.error('Erro ao carregar clientes');
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar dados:', error);
+      
+      if (error.response?.data?.error) {
+        toast.error(error.response.data.error);
+      } else {
+        toast.error('Erro ao carregar dados');
+      }
     } finally {
       setLoading(false);
+      setLoadingKpis(false);
     }
   };
 
-  const getDadosGraficoTopClientes = () => {
-    if (clientes.length === 0) return [];
-    
-    return [...clientes]
-      .sort((a, b) => (b.totalResgates || 0) - (a.totalResgates || 0))
-      .slice(0, 5)
-      .map(c => ({
-        nome: c.nome.split(' ')[0] || c.nome,
-        resgates: c.totalResgates || 0
-      }));
-  };
+  useEffect(() => {
+    carregarDados(1);
+  }, []);
 
-  const getDadosGraficoDistribuicao = () => {
-    if (clientes.length === 0) return [];
-    
-    const faixas = {
-      '1-5': clientes.filter(c => (c.totalResgates || 0) >= 1 && (c.totalResgates || 0) <= 5).length,
-      '6-10': clientes.filter(c => (c.totalResgates || 0) >= 6 && (c.totalResgates || 0) <= 10).length,
-      '11-15': clientes.filter(c => (c.totalResgates || 0) >= 11 && (c.totalResgates || 0) <= 15).length,
-      '16+': clientes.filter(c => (c.totalResgates || 0) > 15).length
-    };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      carregarDados(1);
+    }, 500);
 
-    return Object.entries(faixas)
-      .filter(([_, valor]) => valor > 0)
-      .map(([faixa, valor]) => ({
-        faixa,
-        valor
-      }));
-  };
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const filtrarClientes = (): ClienteLoja[] => {
-    let filtrados = [...clientes];
-
-    if (search) {
-      filtrados = filtrados.filter(c => 
-        c.nome.toLowerCase().includes(search.toLowerCase()) ||
-        c.email.toLowerCase().includes(search.toLowerCase()) ||
-        c.whatsapp.includes(search)
-      );
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= paginacao.totalPages) {
+      carregarDados(newPage);
     }
-
-    if (filtroPeriodo !== 'todos') {
-      const hoje = new Date();
-      const limite = new Date();
-
-      switch (filtroPeriodo) {
-        case '30dias':
-          limite.setDate(hoje.getDate() - 30);
-          break;
-        case '90dias':
-          limite.setDate(hoje.getDate() - 90);
-          break;
-        case 'ano':
-          limite.setFullYear(hoje.getFullYear() - 1);
-          break;
-      }
-
-      filtrados = filtrados.filter(c => 
-        c.ultimoResgate && new Date(c.ultimoResgate) >= limite
-      );
-    }
-
-    switch (ordenarPor) {
-      case 'nome':
-        filtrados.sort((a, b) => a.nome.localeCompare(b.nome));
-        break;
-      case 'resgates':
-        filtrados.sort((a, b) => (b.totalResgates || 0) - (a.totalResgates || 0));
-        break;
-      case 'recente':
-        filtrados.sort((a, b) => {
-          if (!a.ultimoResgate) return 1;
-          if (!b.ultimoResgate) return -1;
-          return new Date(b.ultimoResgate).getTime() - new Date(a.ultimoResgate).getTime();
-        });
-        break;
-    }
-
-    return filtrados;
   };
 
   const formatarData = (data: string | null): string => {
@@ -265,207 +210,230 @@ export default function ClientesLojaPage() {
     return new Date(data).toLocaleDateString('pt-BR');
   };
 
-  const formatarDataHora = (data: string | null): string => {
-    if (!data) return 'Nunca';
-    return new Date(data).toLocaleString('pt-BR');
+  const formatarMoeda = (valor: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
   };
 
-  const calcularIdade = (dataNascimento: string): number => {
-    const nasc = new Date(dataNascimento);
-    const hoje = new Date();
-    let idade = hoje.getFullYear() - nasc.getFullYear();
-    const mes = hoje.getMonth() - nasc.getMonth();
-    if (mes < 0 || (mes === 0 && hoje.getDate() < nasc.getDate())) {
-      idade--;
-    }
-    return idade;
-  };
+  const clientesFiltrados = clientes.filter(c => 
+    c.nome.toLowerCase().includes(search.toLowerCase()) ||
+    c.email.toLowerCase().includes(search.toLowerCase()) ||
+    c.whatsapp.includes(search)
+  );
 
-  const clientesFiltrados = filtrarClientes();
-  const dadosTopClientes = getDadosGraficoTopClientes();
-  const dadosDistribuicao = getDadosGraficoDistribuicao();
-  const CORES = ['#f97316', '#fb923c', '#fdba74', '#fed7aa', '#fecaca'];
-
-  // Calcular totais com proteção contra NaN
-  const totalClientes = clientes.length;
-  const totalResgates = clientes.reduce((acc, c) => acc + (c.totalResgates || 0), 0);
-  const mediaResgates = totalClientes > 0 ? (totalResgates / totalClientes).toFixed(1) : '0';
-  
-  const clienteTop = clientes.length > 0 
-    ? [...clientes].sort((a, b) => (b.totalResgates || 0) - (a.totalResgates || 0))[0]
-    : null;
+  // Componente de loading para KPIs
+  const KpiSkeleton = () => (
+    <div className="h-20 bg-gray-100 animate-pulse rounded-lg"></div>
+  );
 
   return (
     <ProtectedRoute allowedRoles={['loja']}>
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         {/* Cabeçalho */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-            <p className="text-gray-500 mt-1">
-              Clientes que resgataram cupons da sua loja
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Select value={ordenarPor} onValueChange={setOrdenarPor}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Ordenar por" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="resgates">Mais resgates</SelectItem>
-                <SelectItem value="recente">Mais recentes</SelectItem>
-                <SelectItem value="nome">Nome</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="30dias">Últimos 30 dias</SelectItem>
-                <SelectItem value="90dias">Últimos 90 dias</SelectItem>
-                <SelectItem value="ano">Último ano</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Clientes da Loja</h1>
+          <p className="text-gray-500 mt-1">
+            Visão completa dos clientes que resgataram cupons na sua loja
+          </p>
         </div>
 
-        {/* Cards de resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* 🔥 KPIs - 9 cards em grid 4x2 + 1 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Total de Clientes */}
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium text-gray-500">
                 Total de Clientes
               </CardTitle>
+              <Users className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalClientes}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                clientes únicos
-              </p>
+              {loadingKpis ? (
+                <KpiSkeleton />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{estatisticas?.clientes.total || 0}</div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    clientes únicos
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
+          {/* Card 2: Clientes Ativos */}
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium text-gray-500">
+                Clientes Ativos
+              </CardTitle>
+              <Users className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              {loadingKpis ? (
+                <KpiSkeleton />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-green-600">
+                    {estatisticas?.clientes.unicos || 0}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    com pelo menos 1 resgate
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 3: Total de Resgates */}
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium text-gray-500">
                 Total de Resgates
               </CardTitle>
+              <Ticket className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalResgates}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                em todos os cupons
-              </p>
+              {loadingKpis ? (
+                <KpiSkeleton />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{estatisticas?.resgates.total || 0}</div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    em todos os cupons
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
+          {/* Card 4: Resgates no Mês */}
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium text-gray-500">
+                Resgates no Mês
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              {loadingKpis ? (
+                <KpiSkeleton />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-green-600">
+                    {estatisticas?.resgates.mes || 0}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    nos últimos 30 dias
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 5: Média por Cliente */}
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium text-gray-500">
                 Média por Cliente
               </CardTitle>
+              <Percent className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mediaResgates}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                resgates/cliente
-              </p>
+              {loadingKpis ? (
+                <KpiSkeleton />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {estatisticas?.resgates.mediaPorCliente.toFixed(1)}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    resgates/cliente
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
+      
+      
+
+          {/* Card 7: 🔥 QR Codes Validados (NOVO) */}
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium text-gray-500">
-                Cliente Top
+                QR Codes Validados
               </CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-bold truncate">
-                {clienteTop?.nome || '-'}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                {clienteTop?.totalResgates || 0} resgates
-              </p>
+              {loadingKpis ? (
+                <KpiSkeleton />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-green-600">
+                    {totalQrCodesValidados}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {((totalQrCodesValidados / totalQrCodes) * 100).toFixed(1)}% do total
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 8: Taxa de Validação */}
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium text-gray-500">
+                Taxa de Validação
+              </CardTitle>
+              <Percent className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              {loadingKpis ? (
+                <KpiSkeleton />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-green-600">
+                    {estatisticas?.qrCodes.taxaValidacao}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {estatisticas?.qrCodes.validados} de {estatisticas?.qrCodes.total} validados
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 9: Gasto Total */}
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium text-gray-500">
+                Gasto Total
+              </CardTitle>
+              <Wallet className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              {loadingKpis ? (
+                <KpiSkeleton />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {formatarMoeda(gastoTotal)}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    baseado em QR codes validados
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Gráficos */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Top 5 Clientes</CardTitle>
-              <CardDescription>
-                Clientes com mais resgates
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                {dadosTopClientes.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dadosTopClientes}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="nome" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="resgates" fill="#f97316" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-gray-400">
-                    Sem dados para exibir
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Distribuição por Resgates</CardTitle>
-              <CardDescription>
-                Quantidade de clientes por faixa de resgates
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                {dadosDistribuicao.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={dadosDistribuicao}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent, value }) => {
-                          const percentage = percent ? (percent * 100).toFixed(0) : 0;
-                          return `${name}: ${value} (${percentage}%)`;
-                        }}
-                        outerRadius={100}
-                        dataKey="valor"
-                        nameKey="faixa"
-                      >
-                        {dadosDistribuicao.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={CORES[index % CORES.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-gray-400">
-                    Sem dados para exibir
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filtro de busca */}
+        {/* Barra de busca */}
         <Card>
           <CardHeader>
             <CardTitle>Buscar Clientes</CardTitle>
@@ -491,7 +459,7 @@ export default function ClientesLojaPage() {
           <CardHeader>
             <CardTitle>Lista de Clientes</CardTitle>
             <CardDescription>
-              {clientesFiltrados.length} clientes encontrados
+              {paginacao.total} clientes encontrados • Página {paginacao.page} de {paginacao.totalPages}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -501,7 +469,9 @@ export default function ClientesLojaPage() {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Contato</TableHead>
                   <TableHead>Localização</TableHead>
-                  <TableHead>Total Resgates</TableHead>
+                  <TableHead>Resgates</TableHead>
+                  <TableHead>QR Codes</TableHead>
+                  <TableHead>Total Gasto</TableHead>
                   <TableHead>Último Resgate</TableHead>
                   <TableHead className="w-[70px]"></TableHead>
                 </TableRow>
@@ -509,61 +479,92 @@ export default function ClientesLojaPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto" />
+                    <TableCell colSpan={8} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-3">
+                        <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                        <p className="text-sm text-gray-500">Carregando clientes...</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : clientesFiltrados.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <User className="h-12 w-12 text-gray-400" />
-                        <p className="text-gray-500">Nenhum cliente encontrado</p>
+                    <TableCell colSpan={8} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-3">
+                        <User className="h-12 w-12 text-gray-300" />
+                        <div>
+                          <p className="text-gray-500 font-medium">Nenhum cliente encontrado</p>
+                          <p className="text-sm text-gray-400">
+                            {search ? 'Tente outros termos de busca' : 'Ainda não há clientes'}
+                          </p>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
                   clientesFiltrados.map((cliente) => (
-                    <TableRow key={cliente.id}>
+                    <TableRow key={cliente.id} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-orange-100 text-orange-600">
+                          <Avatar className="h-10 w-10 border-2 border-orange-100">
+                            <AvatarFallback className="bg-gradient-to-br from-orange-500 to-amber-600 text-white">
                               {cliente.nome.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">{cliente.nome}</p>
+                            <p className="font-medium text-gray-900">{cliente.nome}</p>
                             <p className="text-xs text-gray-500">{cliente.email}</p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 text-sm">
                           <Phone className="h-3 w-3 text-gray-400" />
-                          <span className="text-sm">{cliente.whatsapp}</span>
+                          <span>{cliente.whatsapp}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 text-sm">
                           <MapPin className="h-3 w-3 text-gray-400" />
-                          <span className="text-sm">{cliente.cidade}/{cliente.estado}</span>
+                          <span>{cliente.cidade || '-'}/{cliente.estado || '-'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="bg-orange-50">
-                          {cliente.totalResgates} resgates
+                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                          {cliente.totalResgates} resgates • {cliente.totalCupons} cupons
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">
-                          {formatarData(cliente.ultimoResgate)}
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={cn(
+                            "text-xs",
+                            cliente.qrCodesValidados === cliente.totalQrCodes && cliente.totalQrCodes > 0
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : "bg-gray-50 text-gray-700 border-gray-200"
+                          )}>
+                            {cliente.qrCodesValidados}/{cliente.totalQrCodes} validados
+                          </Badge>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {/* 🔥 LINK PARA A PÁGINA DE DETALHES DO CLIENTE */}
+                        <div className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3 text-orange-500" />
+                          <span className="text-sm font-medium text-orange-600">
+                            {formatarMoeda(cliente.totalGasto)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-600">
+                          {formatarData(cliente.ultimoResgate)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         <Link href={`/dashboard-loja/clientes/${cliente.id}`}>
-                          <Button variant="ghost" size="icon">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
@@ -573,11 +574,66 @@ export default function ClientesLojaPage() {
                 )}
               </TableBody>
             </Table>
+
+            {/* Paginação */}
+            {!loading && paginacao.totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-4 border-t">
+                <div className="text-sm text-gray-500">
+                  Mostrando {((paginacao.page - 1) * paginacao.limit) + 1} a{' '}
+                  {Math.min(paginacao.page * paginacao.limit, paginacao.total)} de{' '}
+                  {paginacao.total} resultados
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(1)}
+                    disabled={!paginacao.hasPrev}
+                    className="h-8 w-8"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(paginacao.page - 1)}
+                    disabled={!paginacao.hasPrev}
+                    className="h-8 w-8"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm px-3 py-1 bg-gray-100 rounded-md">
+                    {paginacao.page} / {paginacao.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(paginacao.page + 1)}
+                    disabled={!paginacao.hasNext}
+                    className="h-8 w-8"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(paginacao.totalPages)}
+                    disabled={!paginacao.hasNext}
+                    className="h-8 w-8"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
-
-        {/* 🔥 REMOVIDO O MODAL DE DETALHES - AGORA USA A PÁGINA SEPARADA */}
       </div>
     </ProtectedRoute>
   );
 }
+
+// Função auxiliar para classes condicionais
+const cn = (...classes: (string | boolean | undefined)[]) => {
+  return classes.filter(Boolean).join(' ');
+};
