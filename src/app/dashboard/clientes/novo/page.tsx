@@ -108,8 +108,14 @@ export default function NovoClientePage() {
       await clienteService.criar(dados);
       toast.success('Cliente criado com sucesso!');
       router.push('/dashboard/clientes');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erro ao criar cliente');
+    } catch (error: unknown) {
+      type ApiError = { response?: { data?: { error?: string } } };
+      const message =
+        typeof error === 'object' && error !== null
+          ? (error as ApiError).response?.data?.error
+          : null;
+
+      toast.error(message || 'Erro ao criar cliente');
     } finally {
       setLoading(false);
     }

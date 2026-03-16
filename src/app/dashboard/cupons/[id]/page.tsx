@@ -47,7 +47,7 @@ export default function EditarCupomPage() {
     const carregarCupom = async () => {
       try {
         setInitialLoading(true);
-        const data = await cupomService.buscarPorId(id);
+        const data = await cupomService.getById(id);
         setCupom(data);
       
         
@@ -148,7 +148,7 @@ export default function EditarCupomPage() {
 
     try {
       setLoading(true);
-      await cupomService.atualizar(id, dadosAtualizar);
+      await cupomService.update(id, dadosAtualizar);
       toast.success('Cupom atualizado com sucesso!');
       router.push('/dashboard/cupons');
     } catch (error: any) {

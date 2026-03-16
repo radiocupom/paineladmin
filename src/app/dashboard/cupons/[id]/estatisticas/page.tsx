@@ -45,6 +45,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 export default function EstatisticasCupomPage() {
+  // No topo do arquivo, depois dos imports
+console.log('🚀 Página de estatísticas carregando...');
+// console.log('🔍 ID do cupom:', params.id);
   const router = useRouter();
   const params = useParams();
   const { user: currentUser } = useAuth();
@@ -61,7 +64,7 @@ export default function EstatisticasCupomPage() {
   const carregarEstatisticas = async () => {
     try {
       setLoading(true);
-      const data = await cupomService.getEstatisticas(id);
+      const data = await cupomService.getStats(id);
       setEstatisticas(data);
     } catch (error) {
       toast.error('Erro ao carregar estatísticas');

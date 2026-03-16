@@ -8,12 +8,12 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import {
-  dashboardService,
+  adminDashboardService, // ← CORRIGIDO
   type StoreDistribution
 } from '@/services/adminDashboardService';
 import { PieChart } from 'lucide-react';
 
-// 🔥 Interface do componente
+// Interface do componente
 interface CategoryWithPercentage {
   id: number;
   categoria: string;
@@ -42,19 +42,19 @@ export function StoreDistribution() {
   useEffect(() => {
     async function fetchData() {
       try {
-        // 🔥 Dados vindos da API com tipagem original
-        const data = await dashboardService.getStoreDistribution();
+        // 🔥 Usando adminDashboardService em vez de dashboardService
+        const data = await adminDashboardService.getStoreDistribution();
 
-        // 🔥 Transforma os dados para o formato esperado
+        // Transforma os dados para o formato esperado
         const transformed = data.map((item: StoreDistribution) => ({
           categoria: item.categoria,
-          lojas: item._count?.id || 0 // 🔥 Mapeia id para lojas
+          lojas: item._count?.id || 0
         }));
 
-        // 🔥 Calcula o total
+        // Calcula o total
         const total = transformed.reduce((acc, item) => acc + item.lojas, 0);
 
-        // 🔥 Formata com porcentagens e cores
+        // Formata com porcentagens e cores
         const formatted: CategoryWithPercentage[] = transformed.map((item, index) => ({
           id: index + 1,
           categoria: item.categoria,

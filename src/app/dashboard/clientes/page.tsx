@@ -15,9 +15,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -47,6 +44,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import clienteService, { Cliente } from '@/services/cliente';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function ClientesPage() {
   const router = useRouter();
@@ -62,9 +60,9 @@ export default function ClientesPage() {
   const carregarClientes = async () => {
     try {
       setLoading(true);
-      const data = await clienteService.listarTodos();
-      setClientes(data);
-    } catch (error) {
+      const response = await clienteService.listarTodos(); // ← Retorna { clientes, pagination }
+      setClientes(response.clientes); // ← Pega o array de clientes
+    } catch {
       toast.error('Erro ao carregar clientes');
     } finally {
       setLoading(false);
@@ -78,7 +76,7 @@ export default function ClientesPage() {
       await clienteService.deletar(id);
       toast.success('Cliente excluído com sucesso!');
       carregarClientes();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao excluir cliente');
     }
   };
@@ -88,7 +86,7 @@ export default function ClientesPage() {
       await clienteService.toggleStatus(cliente.id, !cliente.ativo);
       toast.success(`Cliente ${!cliente.ativo ? 'ativado' : 'desativado'}!`);
       carregarClientes();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao alterar status');
     }
   };
@@ -145,7 +143,7 @@ export default function ClientesPage() {
               Clientes
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Gerencie os clientes do sistema
+              Gerencie os clientes do Sistema
             </p>
           </div>
           
@@ -461,6 +459,3 @@ export default function ClientesPage() {
     </ProtectedRoute>
   );
 }
-
-// Import cn no topo do arquivo
-import { cn } from '@/lib/utils';

@@ -66,7 +66,7 @@ export default function CuponsPage() {
   const carregarCupons = async () => {
     try {
       setLoading(true);
-      const data = await cupomService.listarTodas();
+      const data = await cupomService.getAll();
       setCupons(data);
     } catch (error) {
       toast.error('Erro ao carregar cupons');
@@ -89,7 +89,7 @@ export default function CuponsPage() {
   }
   
   try {
-    await cupomService.deletar(id);
+    await cupomService.delete(id);
     toast.success('Cupom excluído com sucesso!');
     carregarCupons();
   } catch (error: any) {
@@ -109,7 +109,7 @@ export default function CuponsPage() {
         return;
       }
       
-      const response = await cupomService.gerarQrCodes(id, quantidade);
+      const response = await cupomService.generateQrCodes(id, quantidade);
       toast.success(response.mensagem || `${quantidade} QR codes gerados com sucesso!`);
       carregarCupons();
     } catch (error: any) {

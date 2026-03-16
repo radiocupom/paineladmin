@@ -4,15 +4,14 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/app/dashboard/components/auth/protected-route';
 import { useAuth } from '@/hooks/useAuth';
-import { dashboardLojaService, DadosCompletosDashboard, formatarMoeda } from '@/services/dashboardLoja';
+import { adminDashboardService, formatters, LojaDashboardData } from '@/services/adminDashboardService';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Store, Loader2, AlertCircle, DollarSign, TrendingUp, TrendingDown, CreditCard, QrCode, Users, Ticket, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 
-// 🔥 REUTILIZANDO OS COMPONENTES DO DASHBOARD DA LOJA
+// 🔥 IMPORTAR OS COMPONENTES
 import { KPICards } from '@/app/dashboard-loja/components/KPICards';
 import { UltimosResgates } from '@/app/dashboard-loja/components/UltimosResgates';
 import { CuponsPopulares } from '@/app/dashboard-loja/components/CuponsPopulares';
@@ -21,7 +20,7 @@ import { MetricasAdicionais } from '@/app/dashboard-loja/components/MetricasAdic
 
 // ========== COMPONENTES AUXILIARES ==========
 
-function CardsFinanceiros({ kpis }: { kpis: DadosCompletosDashboard['kpis'] }) {
+function CardsFinanceiros({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
   const totalBruto = kpis.financeiro?.valorTotalResgatado || 0;
   const totalVendido = kpis.financeiro?.valorTotalVendido || 0;
   const totalEconomizado = kpis.financeiro?.valorTotalEconomizado || 0;
@@ -78,7 +77,7 @@ function CardsFinanceiros({ kpis }: { kpis: DadosCompletosDashboard['kpis'] }) {
             </div>
           </div>
           <div className={`text-lg font-bold ${card.cor}`}>
-            {formatarMoeda(card.valor)}
+            {formatters.moeda(card.valor)}
           </div>
           <p className="text-[10px] text-gray-400 mt-1">{card.descricao}</p>
         </div>
@@ -87,7 +86,7 @@ function CardsFinanceiros({ kpis }: { kpis: DadosCompletosDashboard['kpis'] }) {
   );
 }
 
-function CardsResumo({ kpis }: { kpis: DadosCompletosDashboard['kpis'] }) {
+function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
   const cards = [
     {
       titulo: 'Cupons',
@@ -160,7 +159,7 @@ export default function MetricasLojaPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const [dados, setDados] = useState<DadosCompletosDashboard | null>(null);
+  const [dados, setDados] = useState<LojaDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -170,27 +169,31 @@ export default function MetricasLojaPage() {
     carregarDados();
   }, [lojaId]);
 
-  const carregarDados = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // 🔥 USAR O MÉTODO EXISTENTE - mas precisa de adaptação no backend
-      // Por enquanto, vamos usar o getDadosCompletos que busca da loja logada
-      // Idealmente, teríamos um método getDadosLojaPorId(lojaId)
-     const data = await dashboardLojaService.getDadosLojaPorId(lojaId);
-      
-      // 🔥 SIMULANDO QUE OS DADOS SÃO DA LOJA ESPECÍFICA
-      // Na realidade, o backend precisa aceitar um parâmetro de lojaId
-      setDados(data);
-      
-    } catch (error) {
-      console.error('Erro ao carregar métricas:', error);
-      setError('Erro ao carregar métricas da loja');
-    } finally {
-      setLoading(false);
-    }
-  };
+ const carregarDados = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    console.log('🔍 Buscando dados para loja:', lojaId);
+    
+    // 🔥 USAR AS NOVAS ROTAS DO ADMIN PARA BUSCAR DADOS DA LOJA ESPECÍFICA
+    const dadosLoja = await adminDashboardService.getLojaDadosCompletos(lojaId);
+    
+    console.log('✅ Dados recebidos:', dadosLoja);
+    setDados(dadosLoja);
+    
+  } catch (error: any) {
+    console.error('❌ Erro detalhado:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      config: error.config
+    });
+    setError(error.response?.data?.error || 'Erro ao carregar métricas da loja');
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (loading) {
     return (

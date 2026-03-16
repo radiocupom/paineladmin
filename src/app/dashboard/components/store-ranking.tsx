@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Trophy, Medal, Award, TrendingUp } from 'lucide-react';
 import {
-  dashboardService,
+  adminDashboardService, // ← CORRIGIDO
   StoreRanking as StoreRankingType
 } from '@/services/adminDashboardService';
 
@@ -24,7 +24,8 @@ export function StoreRanking() {
   useEffect(() => {
     async function fetchRanking() {
       try {
-        const data = await dashboardService.getStoreRanking();
+        // 🔥 Usando adminDashboardService em vez de dashboardService
+        const data = await adminDashboardService.getStoreRanking();
 
         const sorted = [...data].sort(
           (a, b) => b.totalResgates - a.totalResgates
