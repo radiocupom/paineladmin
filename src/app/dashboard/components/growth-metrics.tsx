@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Store, Ticket } from 'lucide-react';
 import { adminDashboardService } from '@/services/adminDashboardService';
 
+
+
 const colorVariants = {
   blue: { bg: 'bg-blue-100', text: 'text-blue-600' },
   green: { bg: 'bg-green-100', text: 'text-green-600' },
@@ -12,7 +14,7 @@ const colorVariants = {
 };
 
 export function GrowthMetrics() {
-  const [data, setData] = useState<GrowthMetricsResponse | null>(null);
+ const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

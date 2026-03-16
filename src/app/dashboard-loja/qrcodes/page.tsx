@@ -79,7 +79,7 @@ export default function QrCodesPage() {
     try {
       setLoading(true);
       
-      const cuponsData = await cupomService.listarMeusCupons();
+      const cuponsData = await cupomService.getMyStore();
       setCupons(cuponsData);
 
       const qrCodesData = await qrCodeService.listarQrCodesLoja();
@@ -111,7 +111,7 @@ export default function QrCodesPage() {
 
     try {
       setGerandoQr(true);
-      await cupomService.gerarQrCodes(cupomFiltro, quantidade);
+      await cupomService.generateQrCodes(cupomFiltro, quantidade);
       toast.success(`${quantidade} QR codes gerados com sucesso!`);
       carregarDados();
     } catch (error: any) {

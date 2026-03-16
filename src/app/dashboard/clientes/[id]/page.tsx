@@ -233,7 +233,11 @@ export default function EditarClientePage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs 
+  value={activeTab} 
+  onValueChange={(value) => setActiveTab(value as "overview" | "resgates" | "qrcodes" | "edit")} 
+  className="w-full"
+>
           <TabsList className="grid w-full grid-cols-4 h-auto p-1">
             <TabsTrigger value="overview" className="text-[10px] sm:text-xs py-1.5 sm:py-2">
               Visão geral
