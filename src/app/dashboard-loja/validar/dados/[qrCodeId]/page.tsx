@@ -122,7 +122,20 @@ export default function ValidarQRCodePage() {
         setError('Erro ao carregar dados do QR code');
       }
     } catch (err: any) {
-      setError(err.message || 'Erro ao conectar com o servidor');
+      console.error('🔴 Erro ao carregar dados:', err);
+      
+      // Tratar erros específicos baseados no status HTTP
+      if (err.response?.status === 404) {
+        setError('QR Code não encontrado ou inválido');
+      } else if (err.response?.status === 403) {
+        setError('Você não tem permissão para validar este QR Code');
+      } else if (err.response?.status === 401) {
+        setError('Sessão expirada. Faça login novamente');
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else {
+        setError(err.message || 'Erro ao conectar com o servidor');
+      }
     } finally {
       setLoading(false);
     }
