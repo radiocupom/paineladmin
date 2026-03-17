@@ -61,6 +61,24 @@ export default function ScanQRCodePage() {
   const [resultado, setResultado] = useState<any>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
 
+  // ================= FUNÇÃO PARA EXTRAIR ID DO QR CODE =================
+  const extrairIdDoQRCode = (codigo: string): string => {
+    // Se for uma URL completa, extrai o último segmento (ID)
+    if (codigo.includes('http') && codigo.includes('/')) {
+      const partes = codigo.split('/');
+      const ultimoSegmento = partes[partes.length - 1];
+      
+      // Remove query parameters se houver
+      const idLimpo = ultimoSegmento.split('?')[0];
+      
+      console.log('🔍 Extraindo ID da URL:', { url: codigo, idExtraido: idLimpo });
+      return idLimpo;
+    }
+    
+    // Se já for apenas o código/ID, retorna como está
+    return codigo;
+  };
+
   // ================= FUNÇÕES DA CÂMERA =================
   const iniciarCamera = async () => {
     try {
@@ -162,8 +180,12 @@ export default function ScanQRCodePage() {
         if (code && code.data !== ultimoCodigo) {
           console.log('📌 QR Code detectado:', code.data.substring(0, 20) + '...');
           setUltimoCodigo(code.data);
+          
+          // 🔥 EXTRAIR APENAS O ID DA URL
+          const qrCodeId = extrairIdDoQRCode(code.data);
+          
           pararCamera();
-          router.push(`/dashboard-loja/validar/dados/${encodeURIComponent(code.data)}`);
+          router.push(`/dashboard-loja/validar/dados/${qrCodeId}`);
         }
       }
     }, 300);
@@ -176,7 +198,11 @@ export default function ScanQRCodePage() {
     setValidando(true);
     setResultadoDialog(false);
     pararCamera();
-    router.push(`/dashboard-loja/validar/dados/${encodeURIComponent(codigo)}`);
+    
+    // 🔥 EXTRAIR APENAS O ID DA URL
+    const qrCodeId = extrairIdDoQRCode(codigo);
+    
+    router.push(`/dashboard-loja/validar/dados/${qrCodeId}`);
     setValidando(false);
   };
 

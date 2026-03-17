@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import validacaoService from '@/services/validacao';
 
 // 🔥 INTERFACES PARA TIPAGEM
 interface Cliente {
@@ -93,46 +94,35 @@ export default function ValidarQRCodePage() {
     }
   }, [user, authLoading, router]);
 
-  // Carregar dados (USA A NOVA ROTA GET)
+  // Carregar dados (USA O SERVICE)
   const carregarDados = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('@raiocupon:token');
       
-      const response = await fetch(
-        `https://api.radiocupom.online/api/front/qrcode/dados/${qrCodeId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
+      const response = await validacaoService.consultarDadosQRCode(qrCodeId);
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setDados(data.data as DadosQRCode); // 🔥 CAST
+      if (response.success) {
+        setDados(response.data as DadosQRCode);
         
         // Verificar status retornado
-        if (data.data.status) {
-          setPodeValidar(data.data.status.podeValidar);
-          if (!data.data.status.podeValidar) {
-            setMensagem(data.data.status.motivos.join(', '));
+        if (response.data.status) {
+          setPodeValidar(response.data.status.podeValidar);
+          if (!response.data.status.podeValidar) {
+            setMensagem(response.data.status.motivos.join(', '));
           }
         }
         
         // Se já estiver validado
-        if (data.data.qrCode.validado) {
+        if (response.data.qrCode.validado) {
           setValidado(true);
           setMensagem('Este QR code já foi utilizado em ' + 
-            new Date(data.data.qrCode.validadoEm).toLocaleString('pt-BR'));
+            (response.data.qrCode.validadoEm ? new Date(response.data.qrCode.validadoEm).toLocaleString('pt-BR') : 'data desconhecida'));
         }
       } else {
-        setError(data.error || 'Erro ao carregar dados');
+        setError('Erro ao carregar dados do QR code');
       }
-    } catch (err) {
-      setError('Erro ao conectar com o servidor');
+    } catch (err: any) {
+      setError(err.message || 'Erro ao conectar com o servidor');
     } finally {
       setLoading(false);
     }
@@ -144,20 +134,9 @@ export default function ValidarQRCodePage() {
       setValidando(true);
       setMensagem('');
 
-      const token = localStorage.getItem('@raiocupon:token');
-      
-      const response = await fetch('https://api.radiocupom.online/api/front/validar-qrcode', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ qrCodeId })
-      });
+      const response = await validacaoService.confirmarValidacao(qrCodeId);
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (response.success) {
         setValidado(true);
         setMensagem('✅ QR Code validado com sucesso!');
         setPodeValidar(false);
@@ -177,12 +156,12 @@ export default function ValidarQRCodePage() {
         
         toast.success('QR Code validado!');
       } else {
-        setMensagem(data.error || 'Erro ao validar QR code');
-        toast.error(data.error || 'Erro na validação');
+        setMensagem(response.message || 'Erro ao validar QR code');
+        toast.error(response.message || 'Erro na validação');
       }
-    } catch (err) {
-      setMensagem('Erro ao conectar com o servidor');
-      toast.error('Erro ao validar');
+    } catch (err: any) {
+      setMensagem(err.message || 'Erro ao conectar com o servidor');
+      toast.error(err.message || 'Erro ao validar');
     } finally {
       setValidando(false);
     }
