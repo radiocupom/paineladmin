@@ -86,6 +86,7 @@ function CardsFinanceiros({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
   );
 }
 
+// 1. CORRIGIR CardsResumo - linhas 95-135
 function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
   const cards = [
     {
@@ -99,7 +100,7 @@ function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
     {
       titulo: 'Resgates',
       valor: kpis.resgates.total,
-      mes: kpis.resgates.mes,
+      // REMOVER 'mes' - não existe nos dados
       icone: TrendingUp,
       cor: 'text-green-600',
       bg: 'bg-green-50'
@@ -107,14 +108,14 @@ function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
     {
       titulo: 'QR Codes',
       valor: kpis.qrCodes.total,
-      validados: kpis.qrCodes.validados,
+      validados: kpis.qrCodes.validados, // ✅ existe!
       icone: QrCode,
       cor: 'text-purple-600',
       bg: 'bg-purple-50'
     },
     {
       titulo: 'Clientes',
-      valor: kpis.clientes.total,
+      valor: kpis.clientes?.total || 0, // <- adicionar fallback
       icone: Users,
       cor: 'text-orange-600',
       bg: 'bg-orange-50'
@@ -138,11 +139,7 @@ function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
                 {card.ativos} ativos • {card.valor - card.ativos} expirados
               </p>
             )}
-            {card.mes !== undefined && (
-              <p className="text-xs text-gray-500 mt-1">
-                {card.mes} neste mês
-              </p>
-            )}
+            {/* REMOVER a condição do 'mes' */}
             {card.validados !== undefined && (
               <p className="text-xs text-gray-500 mt-1">
                 {card.validados} validados • {card.valor - card.validados} pendentes
@@ -154,7 +151,6 @@ function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
     </div>
   );
 }
-
 export default function MetricasLojaPage() {
   const params = useParams();
   const router = useRouter();
@@ -278,7 +274,15 @@ export default function MetricasLojaPage() {
               <CuponsPopulares cupons={dados.cuponsPopulares} />
             </div>
 
-            <ResgatesPorDiaChart dados={dados.resgatesPorDia} />
+      {dados.resgatesPorDia && dados.resgatesPorDia.length > 0 ? (
+  <ResgatesPorDiaChart dados={dados.resgatesPorDia} />
+) : (
+  <Card>
+    <CardContent className="p-6 text-center text-gray-500">
+      Dados de resgates por dia não disponíveis
+    </CardContent>
+  </Card>
+)}
             <MetricasAdicionais kpis={dados.kpis} />
           </TabsContent>
 
@@ -312,84 +316,53 @@ export default function MetricasLojaPage() {
             </Card>
           </TabsContent>
 
+      
           {/* Aba QR Codes */}
-          <TabsContent value="qrcodes" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Estatísticas de QR Codes</CardTitle>
-                <CardDescription>
-                  Análise de validação e uso de QR codes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {dados.qrCodeStats ? (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <Card>
-                        <CardContent className="p-4">
-                          <p className="text-sm text-gray-500">Total</p>
-                          <p className="text-2xl font-bold">{dados.qrCodeStats.totais.resgatados}</p>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="p-4">
-                          <p className="text-sm text-gray-500">Validados</p>
-                          <p className="text-2xl font-bold text-green-600">{dados.qrCodeStats.totais.validados}</p>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="p-4">
-                          <p className="text-sm text-gray-500">Pendentes</p>
-                          <p className="text-2xl font-bold text-yellow-600">{dados.qrCodeStats.totais.pendentes}</p>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="p-4">
-                          <p className="text-sm text-gray-500">Taxa</p>
-                          <p className="text-2xl font-bold text-blue-600">{dados.qrCodeStats.taxaValidacao.toFixed(1)}%</p>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Hoje</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm">Resgatados: {dados.qrCodeStats.hoje.resgatados}</p>
-                          <p className="text-sm text-green-600">Validados: {dados.qrCodeStats.hoje.validados}</p>
-                          <p className="text-sm text-yellow-600">Pendentes: {dados.qrCodeStats.hoje.pendentes}</p>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Semana</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm">Resgatados: {dados.qrCodeStats.semana.resgatados}</p>
-                          <p className="text-sm text-green-600">Validados: {dados.qrCodeStats.semana.validados}</p>
-                          <p className="text-sm text-yellow-600">Pendentes: {dados.qrCodeStats.semana.pendentes}</p>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Mês</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm">Resgatados: {dados.qrCodeStats.mes.resgatados}</p>
-                          <p className="text-sm text-green-600">Validados: {dados.qrCodeStats.mes.validados}</p>
-                          <p className="text-sm text-yellow-600">Pendentes: {dados.qrCodeStats.mes.pendentes}</p>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-500 py-8">Dados de QR codes não disponíveis</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+<TabsContent value="qrcodes" className="space-y-6">
+  <Card>
+    <CardHeader>
+      <CardTitle>Estatísticas de QR Codes</CardTitle>
+      <CardDescription>
+        Análise de validação e uso de QR codes
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      {/* USAR OS DADOS QUE EXISTEM DE DADOS.KPIS.QRCODES */}
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-gray-500">Total</p>
+              <p className="text-2xl font-bold">{dados.kpis.qrCodes.total}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-gray-500">Validados</p>
+              <p className="text-2xl font-bold text-green-600">{dados.kpis.qrCodes.validados}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-gray-500">Pendentes</p>
+              <p className="text-2xl font-bold text-yellow-600">{dados.kpis.qrCodes.pendentes}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-gray-500">Taxa</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {dados.kpis.qrCodes.total > 0 
+                  ? ((dados.kpis.qrCodes.validados / dados.kpis.qrCodes.total) * 100).toFixed(1)
+                  : '0'}%
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+</TabsContent>
         </Tabs>
       </div>
     </ProtectedRoute>
