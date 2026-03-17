@@ -44,6 +44,7 @@ export default function ScanQRCodePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   
   // States
   const [modo, setModo] = useState<'manual' | 'camera'>('manual');
@@ -62,7 +63,7 @@ export default function ScanQRCodePage() {
     try {
       setCameraError('');
       setDebugInfo('🔍 Solicitando permissão da câmera...');
-      
+
       if (!navigator.mediaDevices) {
         setDebugInfo('❌ navigator.mediaDevices não existe');
         setCameraError('Navegador não suporta acesso à câmera');
@@ -76,68 +77,55 @@ export default function ScanQRCodePage() {
       }
 
       setDebugInfo('✅ getUserMedia disponível, solicitando permissão...');
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
           facingMode: 'environment',
           width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
+          height: { ideal: 720 },
+        },
       });
-      
+
       setDebugInfo('✅ Permissão concedida, stream obtida');
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        
-        // 🔥 CONFIGURAÇÕES ESSENCIAIS PARA iOS
-        videoRef.current.playsInline = true;
-        videoRef.current.muted = true;
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.setAttribute('autoplay', 'true');
-        
-        // Tentar dar play imediatamente
-        try {
-          await videoRef.current.play();
-          setDebugInfo('✅ Vídeo tocando!');
-          setCameraAtiva(true);
-          setScanning(true);
-          iniciarScan();
-        } catch (playError: any) {
-          setDebugInfo(`❌ Erro no play: ${playError.message}`);
-          setCameraError('Erro ao iniciar reprodução');
-        }
-      }
+      streamRef.current = stream;
+      setCameraAtiva(true);
+      setScanning(true);
     } catch (error: any) {
       setDebugInfo(`❌ Erro: ${error.name} - ${error.message}`);
-      
+
       let mensagem = 'Não foi possível acessar a câmera. ';
       if (error.name === 'NotAllowedError') mensagem += 'Permissão negada.';
       else if (error.name === 'NotFoundError') mensagem += 'Nenhuma câmera encontrada.';
       else if (error.name === 'NotReadableError') mensagem += 'Câmera em uso.';
       else mensagem += error.message;
-      
+
       setCameraError(mensagem);
     }
   };
 
   const pararCamera = () => {
     console.log('🛑 Parando câmera...');
-    
+
     if (scanIntervalRef.current) {
       clearInterval(scanIntervalRef.current);
       scanIntervalRef.current = null;
     }
-    
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => {
+
+    const stream = streamRef.current ?? (videoRef.current?.srcObject as MediaStream | null);
+
+    if (stream) {
+      stream.getTracks().forEach((track) => {
         track.stop();
         console.log('📹 Track parada:', track.kind);
       });
+    }
+
+    if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    
+
+    streamRef.current = null;
+
     setCameraAtiva(false);
     setScanning(false);
     console.log('✅ Câmera parada');
@@ -152,22 +140,22 @@ export default function ScanQRCodePage() {
       if (!cameraAtiva || !videoRef.current || !canvasRef.current || validando) {
         return;
       }
-      
+
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      
+
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        
+
         const context = canvas.getContext('2d');
         if (!context) return;
-        
+
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
+
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imageData.data, canvas.width, canvas.height);
-        
+
         if (code && code.data !== ultimoCodigo) {
           console.log('📌 QR Code detectado:', code.data.substring(0, 20) + '...');
           setUltimoCodigo(code.data);
@@ -235,10 +223,41 @@ export default function ScanQRCodePage() {
 
   // ================= LIMPEZA =================
   useEffect(() => {
+    if (!cameraAtiva) return;
+
+    const video = videoRef.current;
+    const stream = streamRef.current;
+
+    if (!video || !stream) return;
+
+    // Garantir que o stream (captura) esteja conectado ao element <video>
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+
+    // Definir atributos necessários para iOS e mobile
+    video.playsInline = true;
+    video.muted = true;
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('autoplay', 'true');
+
+    const playVideo = async () => {
+      try {
+        await video.play();
+        setDebugInfo('✅ Vídeo tocando!');
+        iniciarScan();
+      } catch (playError: any) {
+        setDebugInfo(`❌ Erro no play: ${playError?.message || playError}`);
+        setCameraError('Erro ao iniciar reprodução');
+      }
+    };
+
+    playVideo();
+
     return () => {
       pararCamera();
     };
-  }, []);
+  }, [cameraAtiva]);
 
   // ================= NOVA VALIDAÇÃO =================
   const novaValidacao = () => {
