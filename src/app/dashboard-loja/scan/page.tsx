@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/app/dashboard/components/auth/protected-route';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +41,7 @@ import { cn } from '@/lib/utils';
 
 export default function ScanQRCodePage() {
   const { user } = useAuth();
+  const router = useRouter();
   
   // Refs para câmera
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -160,7 +162,8 @@ export default function ScanQRCodePage() {
         if (code && code.data !== ultimoCodigo) {
           console.log('📌 QR Code detectado:', code.data.substring(0, 20) + '...');
           setUltimoCodigo(code.data);
-          validarQRCode(code.data);
+          pararCamera();
+          router.push(`/dashboard-loja/validar/dados/${encodeURIComponent(code.data)}`);
         }
       }
     }, 300);
@@ -169,37 +172,12 @@ export default function ScanQRCodePage() {
   // ================= FUNÇÃO DE VALIDAÇÃO =================
   const validarQRCode = async (codigo: string) => {
     if (validando) return;
-    
-    try {
-      setValidando(true);
-      if (modo === 'camera') pararCamera();
-      
-      const response = await validacaoService.validarQRCode(codigo);
 
-      setResultado({
-        success: response.success,
-        message: response.message || (response.success ? 'Sucesso' : 'Erro'),
-        valido: response.valido ?? response.success,
-        data: response.data,
-      });
-
-      if (response.success) {
-        toast.success('✅ QR Code validado!');
-      } else {
-        toast.warning(response.message || 'QR code inválido');
-      }
-      
-    } catch (error: any) {
-      setResultado({
-        success: false,
-        message: error.message || 'Erro ao validar QR code',
-        valido: false
-      });
-      toast.error(error.message || 'Erro ao validar QR code');
-    } finally {
-      setResultadoDialog(true);
-      setValidando(false);
-    }
+    setValidando(true);
+    setResultadoDialog(false);
+    pararCamera();
+    router.push(`/dashboard-loja/validar/dados/${encodeURIComponent(codigo)}`);
+    setValidando(false);
   };
 
   // ================= FUNÇÕES MANUAIS =================
@@ -208,6 +186,7 @@ export default function ScanQRCodePage() {
       toast.error('Digite um código válido');
       return;
     }
+
     await validarQRCode(codigoManual.trim());
   };
 
