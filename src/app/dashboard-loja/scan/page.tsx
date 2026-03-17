@@ -35,6 +35,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import jsQR from 'jsqr';
+import validacaoService from '@/services/validacao';
 import { cn } from '@/lib/utils';
 
 export default function ScanQRCodePage() {
@@ -173,30 +174,19 @@ export default function ScanQRCodePage() {
       setValidando(true);
       if (modo === 'camera') pararCamera();
       
-      const token = localStorage.getItem('@raiocupon:token');
-      
-      const response = await fetch('https://api.radiocupom.online/api/front/validar-qrcode', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ codigo })
-      });
-      
-      const data = await response.json();
-      
+      const response = await validacaoService.validarQRCode(codigo);
+
       setResultado({
-        success: response.ok,
-        message: data.error || data.message || (response.ok ? 'Sucesso' : 'Erro'),
-        valido: response.ok,
-        data: data.data
+        success: response.success,
+        message: response.message || (response.success ? 'Sucesso' : 'Erro'),
+        valido: response.valido ?? response.success,
+        data: response.data,
       });
-      
-      if (response.ok) {
+
+      if (response.success) {
         toast.success('✅ QR Code validado!');
       } else {
-        toast.warning(data.error || 'QR code inválido');
+        toast.warning(response.message || 'QR code inválido');
       }
       
     } catch (error: any) {

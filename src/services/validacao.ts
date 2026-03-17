@@ -26,6 +26,47 @@ export interface ValidacaoResponse {
   };
 }
 
+export interface ConsultaQRCodeResponse {
+  success: boolean;
+  data: {
+    cliente: {
+      id: string;
+      nome: string;
+      email: string;
+      whatsapp: string;
+    };
+    cupom: {
+      id: string;
+      codigo: string;
+      descricao: string;
+      titulo: string;
+      nomeProduto: string;
+      precoOriginal: number;
+      precoComDesconto: number;
+      percentualDesconto: number;
+      dataExpiracao: string;
+      termos: string;
+      observacoes: string;
+      loja: {
+        id: string;
+        nome: string;
+        logo: string;
+      };
+    };
+    qrCode: {
+      id: string;
+      codigo: string;
+      usadoEm: string;
+      validado: boolean;
+      validadoEm: string | null;
+    };
+    status: {
+      podeValidar: boolean;
+      motivos: string[];
+    };
+  };
+}
+
 class ValidacaoService {
   /**
    * Validar QR code na loja
@@ -41,22 +82,68 @@ class ValidacaoService {
       return response.data;
       
     } catch (error: any) {
-      // 🔥 LOG MAIS DETALHADO
-      console.error('🔴 Erro na validação - DETALHES:', {
+      console.error('🔴 Erro na validação:', {
         message: error.message,
         status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        url: error.config?.url,
-        method: error.config?.method
+        data: error.response?.data
       });
       
-      // Se o erro veio do servidor com dados, retorna eles
       if (error.response?.data) {
         return error.response.data;
       }
       
-      // Se não, lança o erro para ser capturado pelo componente
+      throw error;
+    }
+  }
+
+  /**
+   * Consultar dados do QR code sem validar
+   * GET /api/front/consultar-dados-qrcode/:qrCodeId
+   */
+  async consultarDadosQRCode(qrCodeId: string): Promise<ConsultaQRCodeResponse> {
+    try {
+      console.log('🔵 Consultando dados do QR code:', { qrCodeId });
+      
+      const response = await api.get(`/front/consultar-dados-qrcode/${qrCodeId}`);
+      
+      console.log('✅ Dados do QR code:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('🔴 Erro ao consultar QR code:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Confirmar validação do QR code (após consulta)
+   * POST /api/front/validar-qrcode (com qrCodeId)
+   */
+  async confirmarValidacao(qrCodeId: string): Promise<ValidacaoResponse> {
+    try {
+      console.log('🔵 Confirmando validação do QR code:', { qrCodeId });
+      
+      const response = await api.post('/front/validar-qrcode', { qrCodeId });
+      
+      console.log('✅ Validação confirmada:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('🔴 Erro ao confirmar validação:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      
       throw error;
     }
   }
