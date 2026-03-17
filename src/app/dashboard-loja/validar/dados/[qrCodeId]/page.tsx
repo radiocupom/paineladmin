@@ -80,11 +80,14 @@ export default function ValidarQRCodePage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detailedError, setDetailedError] = useState<string | null>(null);
   const [dados, setDados] = useState<DadosQRCode | null>(null); // 🔥 TIPADO
   const [validando, setValidando] = useState(false);
   const [validado, setValidado] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [podeValidar, setPodeValidar] = useState(true);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationDetailedError, setValidationDetailedError] = useState<string | null>(null);
 
   // Verificar autenticação
   useEffect(() => {
@@ -123,6 +126,9 @@ export default function ValidarQRCodePage() {
       }
     } catch (err: any) {
       console.error('🔴 Erro ao carregar dados:', err);
+      
+      // Armazenar erro detalhado para debug
+      setDetailedError(JSON.stringify(err, null, 2));
       
       // Tratar erros específicos baseados no status HTTP
       if (err.response?.status === 404) {
@@ -173,6 +179,9 @@ export default function ValidarQRCodePage() {
         toast.error(response.message || 'Erro na validação');
       }
     } catch (err: any) {
+      console.error('🔴 Erro ao validar QR code:', err);
+      setValidationDetailedError(JSON.stringify(err, null, 2));
+      setValidationError(err.message || 'Erro ao conectar com o servidor');
       setMensagem(err.message || 'Erro ao conectar com o servidor');
       toast.error(err.message || 'Erro ao validar');
     } finally {
@@ -220,6 +229,20 @@ export default function ValidarQRCodePage() {
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
+            
+            {detailedError && (
+              <div className="mb-4">
+                <details className="bg-gray-50 p-3 rounded border">
+                  <summary className="cursor-pointer font-medium text-gray-700 mb-2">
+                    🔍 Detalhes Técnicos do Erro (para debug)
+                  </summary>
+                  <pre className="text-xs text-gray-600 whitespace-pre-wrap overflow-auto max-h-40">
+                    {detailedError}
+                  </pre>
+                </details>
+              </div>
+            )}
+            
             <Button 
               onClick={() => router.push('/dashboard/dashboard-loja')}
               variant="outline"
@@ -366,6 +389,28 @@ export default function ValidarQRCodePage() {
                 Resgatado em: {new Date(qrCode.usadoEm).toLocaleString('pt-BR')}
               </p>
             </div>
+
+            {/* Mensagens de status ou erro */}
+            {mensagem && (
+              <Alert className={`mb-4 ${validado ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                <AlertDescription className="text-sm">
+                  {mensagem}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {validationError && validationDetailedError && (
+              <div className="mb-4">
+                <details className="bg-red-50 p-3 rounded border border-red-200">
+                  <summary className="cursor-pointer font-medium text-red-700 mb-2">
+                    🔍 Detalhes Técnicos do Erro de Validação (para debug)
+                  </summary>
+                  <pre className="text-xs text-red-600 whitespace-pre-wrap overflow-auto max-h-40">
+                    {validationDetailedError}
+                  </pre>
+                </details>
+              </div>
+            )}
 
             {/* Botão de confirmar validação */}
             {podeValidar && !validado && (
