@@ -98,13 +98,13 @@ class ValidacaoService {
 
   /**
    * Consultar dados do QR code sem validar
-   * GET /api/front/consultar-dados-qrcode/:qrCodeId
+   * GET /api/front/qrcode/dados/:qrCodeId
    */
   async consultarDadosQRCode(qrCodeId: string): Promise<ConsultaQRCodeResponse> {
     try {
       console.log('🔵 Consultando dados do QR code:', { qrCodeId });
       
-      const response = await api.get(`/front/consultar-dados-qrcode/${qrCodeId}`);
+      const response = await api.get(`/front/qrcode/dados/${qrCodeId}`);
       
       console.log('✅ Dados do QR code:', response.data);
       return response.data;
