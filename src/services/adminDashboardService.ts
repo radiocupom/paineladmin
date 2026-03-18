@@ -1,4 +1,5 @@
 import api from './api';
+import { AxiosError } from 'axios';
 
 // ============================================================================
 // TIPOS COMPARTILHADOS
@@ -389,9 +390,25 @@ export const adminDashboardService = {
     return response.data.data;
   },
 
-  async getQrCodesWithFilters(filters: any): Promise<QRCodeWithFilters> {
+  async getQrCodesWithFilters(filters: {
+    status?: 'validado' | 'pendente';
+    dataInicio?: string;
+    dataFim?: string;
+    clienteId?: string;
+    cupomId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<QRCodeWithFilters> {
     const params = new URLSearchParams();
-    // ... params
+    
+    if (filters.status) params.append('status', filters.status);
+    if (filters.dataInicio) params.append('dataInicio', filters.dataInicio);
+    if (filters.dataFim) params.append('dataFim', filters.dataFim);
+    if (filters.clienteId) params.append('clienteId', filters.clienteId);
+    if (filters.cupomId) params.append('cupomId', filters.cupomId);
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+    
     const response = await api.get(`/dashboard/qrcodes/filters?${params}`); // ← CORRIGIDO
     return response.data.data;
   },
@@ -469,12 +486,13 @@ async getLojaDadosCompletos(lojaId: string): Promise<LojaDashboardData> {
     const response = await api.get(`/dashboard/lojas/${lojaId}/dados-completos`);
     console.log('✅ Resposta:', response.data);
     return response.data.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError;
     console.error('❌ Erro completo:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      headers: error.response?.headers,
-      config: error.config
+      status: axiosError.response?.status,
+      data: axiosError.response?.data,
+      headers: axiosError.response?.headers,
+      config: axiosError.config
     });
     throw error;
   }

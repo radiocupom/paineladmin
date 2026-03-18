@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/app/dashboard/components/auth/protected-route';
 import { useAuth } from '@/hooks/useAuth';
-import { adminDashboardService, formatters, LojaDashboardData, ApiError } from '@/services/adminDashboardService';
+import { AxiosError } from 'axios';
+import { adminDashboardService, formatters, LojaDashboardData } from '@/services/adminDashboardService';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Store, Loader2, AlertCircle, DollarSign, TrendingUp, TrendingDown, CreditCard, QrCode, Users, Ticket } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -162,7 +163,7 @@ function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
 export default function MetricasLojaPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { } = useAuth();
   const [dados, setDados] = useState<LojaDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,14 +187,14 @@ export default function MetricasLojaPage() {
       
       // Type guard para erro da API
       if (error && typeof error === 'object' && 'response' in error) {
-        const apiError = error as ApiError;
+        const apiError = error as AxiosError;
         console.error({
           message: apiError.message,
           response: apiError.response?.data,
           status: apiError.response?.status,
           config: apiError.config
         });
-        setError(apiError.response?.data?.error || 'Erro ao carregar métricas da loja');
+        setError((apiError.response?.data as { error?: string })?.error || 'Erro ao carregar métricas da loja');
       } else if (error instanceof Error) {
         console.error(error.message);
         setError(error.message);
