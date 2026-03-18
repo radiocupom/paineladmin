@@ -138,7 +138,7 @@ export function Footer() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
             {/* Copyright */}
             <p className="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
-              © {currentYear} RadioCupon. Todos os direitos reservados.
+              © {currentYear} RadioCupom. Todos os direitos reservados. Desenvolvido por <a href="#" className="hover:text-blue-600 transition-colors">Felipe Belmont</a>. 
             </p>
 
             {/* Links legais - responsivo */}

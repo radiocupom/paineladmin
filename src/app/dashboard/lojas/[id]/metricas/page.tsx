@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/app/dashboard/components/auth/protected-route';
 import { useAuth } from '@/hooks/useAuth';
-import { adminDashboardService, formatters, LojaDashboardData } from '@/services/adminDashboardService';
+import { adminDashboardService, formatters, LojaDashboardData, ApiError } from '@/services/adminDashboardService';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Store, Loader2, AlertCircle, DollarSign, TrendingUp, TrendingDown, CreditCard, QrCode, Users, Ticket, Calendar } from 'lucide-react';
+import { ArrowLeft, Store, Loader2, AlertCircle, DollarSign, TrendingUp, TrendingDown, CreditCard, QrCode, Users, Ticket } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -86,7 +86,6 @@ function CardsFinanceiros({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
   );
 }
 
-// 1. CORRIGIR CardsResumo - linhas 95-135
 function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
   const cards = [
     {
@@ -100,7 +99,8 @@ function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
     {
       titulo: 'Resgates',
       valor: kpis.resgates.total,
-      // REMOVER 'mes' - não existe nos dados
+      hoje: kpis.resgates.hoje,
+      semana: kpis.resgates.semana,
       icone: TrendingUp,
       cor: 'text-green-600',
       bg: 'bg-green-50'
@@ -108,14 +108,14 @@ function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
     {
       titulo: 'QR Codes',
       valor: kpis.qrCodes.total,
-      validados: kpis.qrCodes.validados, // ✅ existe!
+      validados: kpis.qrCodes.validados,
       icone: QrCode,
       cor: 'text-purple-600',
       bg: 'bg-purple-50'
     },
     {
       titulo: 'Clientes',
-      valor: kpis.clientes?.total || 0, // <- adicionar fallback
+      valor: kpis.clientes?.total || 0,
       icone: Users,
       cor: 'text-orange-600',
       bg: 'bg-orange-50'
@@ -134,15 +134,22 @@ function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
               </div>
             </div>
             <div className="text-xl font-bold">{card.valor}</div>
+            
             {card.ativos !== undefined && (
               <p className="text-xs text-gray-500 mt-1">
                 {card.ativos} ativos • {card.valor - card.ativos} expirados
               </p>
             )}
-            {/* REMOVER a condição do 'mes' */}
+            
             {card.validados !== undefined && (
               <p className="text-xs text-gray-500 mt-1">
                 {card.validados} validados • {card.valor - card.validados} pendentes
+              </p>
+            )}
+            
+            {card.hoje !== undefined && (
+              <p className="text-xs text-gray-500 mt-1">
+                Hoje: {card.hoje} • Esta semana: {card.semana}
               </p>
             )}
           </CardContent>
@@ -151,6 +158,7 @@ function CardsResumo({ kpis }: { kpis: LojaDashboardData['kpis'] }) {
     </div>
   );
 }
+
 export default function MetricasLojaPage() {
   const params = useParams();
   const router = useRouter();
@@ -161,35 +169,45 @@ export default function MetricasLojaPage() {
 
   const lojaId = params.id as string;
 
-  useEffect(() => {
-    carregarDados();
+  const carregarDados = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔍 Buscando dados para loja:', lojaId);
+      
+      const dadosLoja = await adminDashboardService.getLojaDadosCompletos(lojaId);
+      
+      console.log('✅ Dados recebidos:', dadosLoja);
+      setDados(dadosLoja);
+      
+    } catch (error: unknown) {
+      console.error('❌ Erro detalhado:');
+      
+      // Type guard para erro da API
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as ApiError;
+        console.error({
+          message: apiError.message,
+          response: apiError.response?.data,
+          status: apiError.response?.status,
+          config: apiError.config
+        });
+        setError(apiError.response?.data?.error || 'Erro ao carregar métricas da loja');
+      } else if (error instanceof Error) {
+        console.error(error.message);
+        setError(error.message);
+      } else {
+        setError('Erro desconhecido ao carregar dados');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [lojaId]);
 
- const carregarDados = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    console.log('🔍 Buscando dados para loja:', lojaId);
-    
-    // 🔥 USAR AS NOVAS ROTAS DO ADMIN PARA BUSCAR DADOS DA LOJA ESPECÍFICA
-    const dadosLoja = await adminDashboardService.getLojaDadosCompletos(lojaId);
-    
-    console.log('✅ Dados recebidos:', dadosLoja);
-    setDados(dadosLoja);
-    
-  } catch (error: any) {
-    console.error('❌ Erro detalhado:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      config: error.config
-    });
-    setError(error.response?.data?.error || 'Erro ao carregar métricas da loja');
-  } finally {
-    setLoading(false);
-  }
-};
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
 
   if (loading) {
     return (
@@ -274,15 +292,16 @@ export default function MetricasLojaPage() {
               <CuponsPopulares cupons={dados.cuponsPopulares} />
             </div>
 
-      {dados.resgatesPorDia && dados.resgatesPorDia.length > 0 ? (
-  <ResgatesPorDiaChart dados={dados.resgatesPorDia} />
-) : (
-  <Card>
-    <CardContent className="p-6 text-center text-gray-500">
-      Dados de resgates por dia não disponíveis
-    </CardContent>
-  </Card>
-)}
+            {dados.resgatesPorDia && dados.resgatesPorDia.length > 0 ? (
+              <ResgatesPorDiaChart dados={dados.resgatesPorDia} />
+            ) : (
+              <Card>
+                <CardContent className="p-6 text-center text-gray-500">
+                  Dados de resgates por dia não disponíveis
+                </CardContent>
+              </Card>
+            )}
+            
             <MetricasAdicionais kpis={dados.kpis} />
           </TabsContent>
 
@@ -316,53 +335,51 @@ export default function MetricasLojaPage() {
             </Card>
           </TabsContent>
 
-      
           {/* Aba QR Codes */}
-<TabsContent value="qrcodes" className="space-y-6">
-  <Card>
-    <CardHeader>
-      <CardTitle>Estatísticas de QR Codes</CardTitle>
-      <CardDescription>
-        Análise de validação e uso de QR codes
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      {/* USAR OS DADOS QUE EXISTEM DE DADOS.KPIS.QRCODES */}
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm text-gray-500">Total</p>
-              <p className="text-2xl font-bold">{dados.kpis.qrCodes.total}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm text-gray-500">Validados</p>
-              <p className="text-2xl font-bold text-green-600">{dados.kpis.qrCodes.validados}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm text-gray-500">Pendentes</p>
-              <p className="text-2xl font-bold text-yellow-600">{dados.kpis.qrCodes.pendentes}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm text-gray-500">Taxa</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {dados.kpis.qrCodes.total > 0 
-                  ? ((dados.kpis.qrCodes.validados / dados.kpis.qrCodes.total) * 100).toFixed(1)
-                  : '0'}%
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-</TabsContent>
+          <TabsContent value="qrcodes" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Estatísticas de QR Codes</CardTitle>
+                <CardDescription>
+                  Análise de validação e uso de QR codes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <p className="text-sm text-gray-500">Total</p>
+                        <p className="text-2xl font-bold">{dados.kpis.qrCodes.total}</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <p className="text-sm text-gray-500">Validados</p>
+                        <p className="text-2xl font-bold text-green-600">{dados.kpis.qrCodes.validados}</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <p className="text-sm text-gray-500">Pendentes</p>
+                        <p className="text-2xl font-bold text-yellow-600">{dados.kpis.qrCodes.pendentes}</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <p className="text-sm text-gray-500">Taxa</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {dados.kpis.qrCodes.total > 0 
+                            ? ((dados.kpis.qrCodes.validados / dados.kpis.qrCodes.total) * 100).toFixed(1)
+                            : '0'}%
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </ProtectedRoute>
